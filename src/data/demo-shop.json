@@ -1,0 +1,24 @@
+{
+  "id": "demo",
+  "slug": "demo",
+  "name": { "mr": "डेमो भाजी भांडार", "en": "Demo Vegetable Cart" },
+  "place": { "mr": "मुख्य रस्ता, तुमचे गाव", "en": "Main Street, your village" },
+  "whatsapp": "",
+  "pickup": true,
+  "delivery": true,
+  "demo": true,
+  "items": [
+    { "id": "tomato", "icon": "🍅", "name": { "mr": "टोमॅटो", "en": "Tomato" }, "price": 30, "unit": "kg", "inStock": true },
+    { "id": "onion", "icon": "🧅", "name": { "mr": "कांदा", "en": "Onion" }, "price": 35, "unit": "kg", "inStock": true },
+    { "id": "potato", "icon": "🥔", "name": { "mr": "बटाटा", "en": "Potato" }, "price": 30, "unit": "kg", "inStock": true },
+    { "id": "brinjal", "icon": "🍆", "name": { "mr": "वांगी", "en": "Brinjal" }, "price": 40, "unit": "kg", "inStock": true },
+    { "id": "okra", "icon": "🫛", "name": { "mr": "भेंडी", "en": "Okra" }, "price": 60, "unit": "kg", "inStock": true },
+    { "id": "chilli", "icon": "🌶️", "name": { "mr": "हिरवी मिरची", "en": "Green chilli" }, "price": 80, "unit": "kg", "inStock": true },
+    { "id": "cauliflower", "icon": "🥦", "name": { "mr": "फुलकोबी", "en": "Cauliflower" }, "price": 30, "unit": "piece", "inStock": true },
+    { "id": "cabbage", "icon": "🥬", "name": { "mr": "पत्ताकोबी", "en": "Cabbage" }, "price": 25, "unit": "piece", "inStock": false },
+    { "id": "methi", "icon": "🌿", "name": { "mr": "मेथी", "en": "Fenugreek" }, "price": 15, "unit": "bunch", "inStock": true },
+    { "id": "palak", "icon": "🥗", "name": { "mr": "पालक", "en": "Spinach" }, "price": 15, "unit": "bunch", "inStock": true },
+    { "id": "coriander", "icon": "🌱", "name": { "mr": "कोथिंबीर", "en": "Coriander" }, "price": 10, "unit": "bunch", "inStock": true },
+    { "id": "lemon", "icon": "🍋", "name": { "mr": "लिंबू", "en": "Lemon" }, "price": 5, "unit": "piece", "inStock": true }
+  ]
+}
