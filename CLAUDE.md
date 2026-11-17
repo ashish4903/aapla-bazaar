@@ -22,6 +22,7 @@ React (Vite) app for small village shops: customers see today's rates and order 
 - Built for cheap phones on slow networks: no UI library, no web fonts, no images unless needed. Touch targets at least 44px.
 - **Thumb rule, no exceptions:** never commit sensitive data, keys or config that holds them: secrets, tokens, API keys (even "public" ones such as a database anon key), `.env` files, or a real person's phone number, UPI ID, email, name or address. Keys live in GitHub Actions secrets/variables or a git-ignored `.env.local`, set by the owner. Check the staged diff before every commit.
 - **Ask first:** don't read files outside this folder, or any config, credential or `.env` file, without the owner's permission.
+- Never name the real village, vendor or any real location in code, data, docs, commits or PRs. The demo shop uses placeholders ("your village").
 - Demo data only in the repo. No trackers or analytics. Customer details stay on the customer's phone and in the WhatsApp message they send.
 - The demo shop's prices are invented and labelled as a demo; never present them as real.
 - Commit author must be the GitHub noreply address. No AI attribution lines in commits or PRs. New branch + PR per change after the first commit. Add a line under "Unreleased" in `CHANGELOG.md`.
