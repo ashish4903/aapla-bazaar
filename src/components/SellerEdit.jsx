@@ -1,0 +1,35 @@
+import TopBar from './TopBar';
+import ShopBasics from './ShopBasics';
+import ShopService from './ShopService';
+import useLang from '../lib/useLang';
+import { shopProblems } from '../lib/shop';
+
+/** Shop details, changed rarely */
+export default function SellerEdit({ shop, set }) {
+  const { t } = useLang();
+  const problems = shopProblems(shop).filter((key) => key !== 'vendor.needItems');
+  return (
+    <>
+      <header className="hero">
+        <TopBar />
+        <h1>{t('vendor.details')}</h1>
+        <p className="hero-text">{t('vendor.saved')}</p>
+      </header>
+      <main className="seller">
+        <section className="card">
+          <ShopBasics shop={shop} set={set} />
+        </section>
+        <section className="card">
+          <ShopService shop={shop} set={set} />
+        </section>
+        {problems.length > 0 && (
+          <ul className="errors" role="alert">
+            {problems.map((key) => (
+              <li key={key}>{t(key)}</li>
+            ))}
+          </ul>
+        )}
+      </main>
+    </>
+  );
+}

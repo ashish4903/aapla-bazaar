@@ -12,7 +12,8 @@ React (Vite) app for small village shops: customers see today's rates and order 
 
 - `src/lib/shop.js`: the only place shop data is handled. A shop lives on the vendor's phone (localStorage) and inside the link they share (`#/s/<code>`, `encodeShop`/`decodeShop`); `decodeShop` checks every field because anyone can type a link. Any number of vendors can use the app
 - `src/lib/catalogue.js`: common produce (name in both languages, picture, usual unit, never a price) the vendor picks from
-- `src/lib/useRoute.js`: hash routes `#/` home, `#/s/<code>` a shop, `#/my-shop` the vendor's screen
+- `src/lib/useRoute.js`: hash routes `#/` home, `#/s/<code>` a shop, and the seller's `#/my-shop` (today), `#/my-shop/items`, `#/my-shop/edit`
+- `src/lib/useMyShop.js`: the seller's saved shop. Seller screens are `Seller*.jsx` (setup once, then Today / Items / Shop); buyer screens are `ShopView`, `OrderForm`, `OrderSent`
 - `src/lib/keys.js`: every localStorage key
 - `src/lib/order.js`: basket, prices, quantity labels, the customer's order message, the vendor's rates message, WhatsApp links
 - `src/lib/i18n.js`: all interface text; use `useLang()` (`t`, `name`, `pick`) in components and never hard-code visible text. A test fails if Marathi or English is missing a key
