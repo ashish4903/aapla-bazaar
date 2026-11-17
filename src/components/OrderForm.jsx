@@ -5,8 +5,11 @@ import { orderMessage, orderTotals, rupees, whatsappUrl } from '../lib/order';
 import { read, write } from '../lib/storage';
 import { CUSTOMER_KEY } from '../lib/keys';
 
-/** The order as a bill, then who it is for */
-export default function OrderForm({ shop, lines, onChange, onBack, onSent }) {
+/**
+ * The order as a bill, then who it is for. A returning customer's name and
+ * address are already filled in and shown as one line, so sending is one tap.
+ */
+export default function OrderForm({ shop, lines, onChange, onSent }) {
   const { t, name } = useLang();
   const [customer, setCustomer] = useState(() => {
     const saved = read(CUSTOMER_KEY, {});
@@ -18,9 +21,17 @@ export default function OrderForm({ shop, lines, onChange, onBack, onSent }) {
       mode: shop[wanted] ? wanted : shop.pickup ? 'pickup' : 'delivery',
     };
   });
+  const missing = (c) => !c.name.trim() || (c.mode === 'delivery' && !c.address.trim());
+  const [editing, setEditing] = useState(() => missing(customer));
   const [showErrors, setShowErrors] = useState(false);
 
   const set = (field) => (e) => setCustomer((c) => ({ ...c, [field]: e.target.value }));
+  const setMode = (e) => {
+    const next = { ...customer, mode: e.target.value };
+    setCustomer(next);
+    if (missing(next)) setEditing(true);
+  };
+
   const delivery = customer.mode === 'delivery';
   const { items, charge, total } = orderTotals(shop, lines, customer.mode);
   const errors = [
@@ -34,6 +45,7 @@ export default function OrderForm({ shop, lines, onChange, onBack, onSent }) {
     if (errors.length > 0) {
       e.preventDefault();
       setShowErrors(true);
+      setEditing(true);
       return;
     }
     // Remembered on this phone only, for the next order
@@ -44,24 +56,7 @@ export default function OrderForm({ shop, lines, onChange, onBack, onSent }) {
 
   return (
     <section className="order" aria-labelledby="order-title">
-      <button type="button" className="back" onClick={onBack}>
-        ← {t('order.back')}
-      </button>
       <h2 id="order-title">{t('order.title')}</h2>
-
-      {shop.pickup && shop.delivery && (
-        <fieldset className="field">
-          <legend>{t('order.how')}</legend>
-          <div className="choices">
-            {['pickup', 'delivery'].map((mode) => (
-              <label key={mode} className="choice">
-                <input type="radio" name="mode" value={mode} checked={customer.mode === mode} onChange={set('mode')} />
-                {t(`order.${mode}`)}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      )}
 
       <ul className="bill">
         {lines.map(({ item, qty, amount }) => (
@@ -91,16 +86,43 @@ export default function OrderForm({ shop, lines, onChange, onBack, onSent }) {
         </li>
       </ul>
 
-      <label className="field">
-        <span>{t('order.name')}</span>
-        <input type="text" value={customer.name} onChange={set('name')} autoComplete="name" />
-      </label>
+      {shop.pickup && shop.delivery && (
+        <fieldset className="field">
+          <legend>{t('order.how')}</legend>
+          <div className="choices">
+            {['pickup', 'delivery'].map((mode) => (
+              <label key={mode} className="choice">
+                <input type="radio" name="mode" value={mode} checked={customer.mode === mode} onChange={setMode} />
+                {t(`order.${mode}`)}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
 
-      {delivery && (
-        <label className="field">
-          <span>{t('order.address')}</span>
-          <textarea rows="2" value={customer.address} onChange={set('address')} />
-        </label>
+      {editing ? (
+        <>
+          <label className="field">
+            <span>{t('order.name')}</span>
+            <input type="text" value={customer.name} onChange={set('name')} autoComplete="name" />
+          </label>
+          {delivery && (
+            <label className="field">
+              <span>{t('order.address')}</span>
+              <textarea rows="2" value={customer.address} onChange={set('address')} />
+            </label>
+          )}
+        </>
+      ) : (
+        <div className="who">
+          <span>
+            <strong>{customer.name}</strong>
+            {delivery && <small>{customer.address}</small>}
+          </span>
+          <button type="button" className="link" onClick={() => setEditing(true)}>
+            {t('order.change')}
+          </button>
+        </div>
       )}
 
       <label className="field">

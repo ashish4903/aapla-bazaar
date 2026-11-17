@@ -190,3 +190,56 @@ export const upiUrl = (shop, amount) =>
   `upi://pay?pa=${encodeURIComponent(shop.upi)}&pn=${encodeURIComponent(shop.name)}&am=${amount.toFixed(2)}&cu=INR`;
 
 export const callUrl = (shop) => `tel:+${shop.whatsapp}`;
+
+/** The seller's whole shop (unpriced items too) for moving to another phone */
+export function encodeBackup(shop) {
+  const keep = { ...emptyShop() };
+  for (const key of Object.keys(keep)) keep[key] = shop[key];
+  return toBase64Url(JSON.stringify({ v: 1, shop: keep }));
+}
+
+/** A backup code back into a shop, or null. Every field is checked, as with any link. */
+export function decodeBackup(code) {
+  try {
+    const data = JSON.parse(fromBase64Url(code));
+    const from = data?.shop;
+    if (data?.v !== 1 || !from || typeof from !== 'object' || !Array.isArray(from.items)) return null;
+
+    const items = [];
+    const seen = new Set();
+    for (const item of from.items.slice(0, 200)) {
+      if (!item || typeof item.id !== 'string' || !item.id || item.id.length > 24 || seen.has(item.id)) continue;
+      if (!UNITS.includes(item.unit)) continue;
+      const known = catalogueItem(item.id);
+      const label = text(item.label, 40);
+      if (!known && !label) continue;
+      seen.add(item.id);
+      items.push({
+        id: item.id,
+        price: money(item.price),
+        unit: item.unit,
+        inStock: item.inStock !== false,
+        special: item.special === true,
+        ...(known ? {} : { label }),
+      });
+    }
+
+    const shop = {
+      name: text(from.name, 60),
+      place: text(from.place, 80),
+      whatsapp: text(from.whatsapp, 15),
+      upi: text(from.upi, 60),
+      pickup: from.pickup !== false,
+      delivery: from.delivery === true,
+      open: from.open !== false,
+      hours: text(from.hours, 40),
+      note: text(from.note, 80),
+      deliveryCharge: money(from.deliveryCharge),
+      minOrder: money(from.minOrder),
+      items,
+    };
+    return shop.name ? shop : null;
+  } catch {
+    return null;
+  }
+}

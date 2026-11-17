@@ -49,6 +49,7 @@ export default function TodayItem({ item, last, onChange }) {
             placeholder="0"
             aria-label={t('vendor.price', { name: label })}
             value={item.price || ''}
+            onFocus={(e) => e.target.select()}
             onChange={(e) => setPrice(Number(e.target.value) || 0)}
           />
           <small>/ {t(`item.per.${item.unit}`)}</small>
