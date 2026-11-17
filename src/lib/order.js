@@ -1,6 +1,6 @@
 import { stepOf } from './shop';
 
-/** Basket: { [itemId]: quantity }. Quantities are in the item's unit (kg, bunch, piece). */
+/** Basket: { [itemId]: quantity }. Quantities are in the item's unit (kg, bunch, piece, dozen). */
 
 const clean = (qty) => Math.round(qty * 100) / 100;
 
@@ -12,8 +12,8 @@ export function changeQty(basket, item, direction) {
 }
 
 /** Lines for items that are still on sale: anything out of stock is left out. */
-export function basketLines(shop, basket) {
-  return shop.items
+export function basketLines(items, basket) {
+  return items
     .filter((item) => item.inStock && basket[item.id] > 0)
     .map((item) => ({ item, qty: basket[item.id], amount: clean(item.price * basket[item.id]) }));
 }
@@ -48,10 +48,21 @@ export function orderMessage({ shop, lines, customer, t, name }) {
   return out.join('\n');
 }
 
-/**
- * WhatsApp click-to-chat link. With no shop number (the demo shop) WhatsApp
- * asks who to send it to.
- */
+/** The message the vendor sends to customers: the day's rates and the shop link */
+export function ratesMessage({ shop, items, link, date, t, name }) {
+  const out = [`🥬 ${shop.name.trim()} · ${t('shop.ratesOf', { date })}`, ''];
+  for (const item of items) {
+    out.push(
+      item.inStock
+        ? `• ${name(item)}: ${rupees(item.price)} / ${t(`item.per.${item.unit}`)}`
+        : `• ${name(item)}: ${t('item.out')}`,
+    );
+  }
+  out.push('', `${t('vendor.orderHere')}:`, link);
+  return out.join('\n');
+}
+
+/** WhatsApp click-to-chat link. With no number, WhatsApp asks who to send it to. */
 export function whatsappUrl(number, message) {
   const digits = (number ?? '').replace(/\D/g, '');
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;

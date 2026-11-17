@@ -1,17 +1,17 @@
 import { useState } from 'react';
+import Stepper from './Stepper';
 import useLang from '../lib/useLang';
-import { basketTotal, orderMessage, qtyLabel, rupees, whatsappUrl } from '../lib/order';
+import { basketTotal, orderMessage, rupees, whatsappUrl } from '../lib/order';
 import { read, write } from '../lib/storage';
+import { CUSTOMER_KEY } from '../lib/keys';
 
-const KEY = 'aapla-bazaar-customer-v1';
-
-export default function OrderForm({ shop, lines, onBack }) {
+export default function OrderForm({ shop, lines, onChange, onBack, onSent }) {
   const { t, name } = useLang();
   const [customer, setCustomer] = useState(() => ({
     name: '',
     address: '',
     note: '',
-    ...read(KEY, {}),
+    ...read(CUSTOMER_KEY, {}),
     mode: shop.pickup ? 'pickup' : 'delivery',
   }));
   const [showErrors, setShowErrors] = useState(false);
@@ -30,7 +30,9 @@ export default function OrderForm({ shop, lines, onBack }) {
       return;
     }
     // Remembered on this phone only, for the next order
-    write(KEY, { name: customer.name, address: customer.address });
+    write(CUSTOMER_KEY, { name: customer.name, address: customer.address });
+    // After the link has opened WhatsApp
+    setTimeout(onSent, 0);
   };
 
   return (
@@ -43,10 +45,11 @@ export default function OrderForm({ shop, lines, onBack }) {
       <ul className="order-lines">
         {lines.map(({ item, qty, amount }) => (
           <li key={item.id}>
-            <span>
-              {item.icon} {name(item)} · {qtyLabel(item, qty, t)}
+            <span className="order-item">
+              <span aria-hidden="true">{item.icon}</span> {name(item)}
+              <small>{rupees(amount)}</small>
             </span>
-            <span>{rupees(amount)}</span>
+            <Stepper item={item} qty={qty} onChange={onChange} />
           </li>
         ))}
         <li className="order-total">
@@ -63,12 +66,14 @@ export default function OrderForm({ shop, lines, onBack }) {
       {shop.pickup && shop.delivery && (
         <fieldset className="field">
           <legend>{t('order.how')}</legend>
-          {['pickup', 'delivery'].map((mode) => (
-            <label key={mode} className="choice">
-              <input type="radio" name="mode" value={mode} checked={customer.mode === mode} onChange={set('mode')} />
-              {t(`order.${mode}`)}
-            </label>
-          ))}
+          <div className="choices">
+            {['pickup', 'delivery'].map((mode) => (
+              <label key={mode} className="choice">
+                <input type="radio" name="mode" value={mode} checked={customer.mode === mode} onChange={set('mode')} />
+                {t(`order.${mode}`)}
+              </label>
+            ))}
+          </div>
         </fieldset>
       )}
 
@@ -94,7 +99,7 @@ export default function OrderForm({ shop, lines, onBack }) {
         </ul>
       )}
 
-      <a className="primary send" href={url} target="_blank" rel="noreferrer" onClick={onSend}>
+      <a className="primary wide send" href={url} target="_blank" rel="noreferrer" onClick={onSend}>
         {t('order.send')}
       </a>
       <p className="private-note">{t('order.private')}</p>
