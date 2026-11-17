@@ -1,37 +1,40 @@
+import Stepper from './Stepper';
 import useLang from '../lib/useLang';
 import { qtyLabel, rupees } from '../lib/order';
 
-export default function ItemRow({ item, qty, onChange }) {
+const QUICK_KG = [0.25, 0.5, 1, 2];
+
+export default function ItemRow({ item, qty, closed, onChange, onSet }) {
   const { t, name, lang } = useLang();
   const other = lang === 'mr' ? 'en' : 'mr';
+  const state = !item.inStock ? ' is-out' : qty > 0 ? ' is-picked' : '';
   return (
-    <li className={`item${item.inStock ? '' : ' is-out'}`}>
+    <li className={`item${state}`}>
       <span className="item-icon" aria-hidden="true">
         {item.icon}
       </span>
       <div className="item-text">
-        <span className="item-name">{name(item)}</span>
-        <span className="item-other" lang={other}>
-          {item.name[other]}
+        <span className="item-name">
+          {item.special && (
+            <span className="star-mark" aria-hidden="true">
+              ★{' '}
+            </span>
+          )}
+          {name(item)}
         </span>
+        {item.name[other] !== name(item) && (
+          <span className="item-other" lang={other}>
+            {item.name[other]}
+          </span>
+        )}
         <span className="item-price">
           <strong>{rupees(item.price)}</strong> / {t(`item.per.${item.unit}`)}
         </span>
       </div>
       {!item.inStock ? (
         <span className="item-out">{t('item.out')}</span>
-      ) : qty > 0 ? (
-        <div className="stepper">
-          <button type="button" aria-label={t('item.less', { name: name(item) })} onClick={() => onChange(item, -1)}>
-            −
-          </button>
-          <span className="stepper-qty" aria-live="polite">
-            {qtyLabel(item, qty, t)}
-          </span>
-          <button type="button" aria-label={t('item.more', { name: name(item) })} onClick={() => onChange(item, 1)}>
-            +
-          </button>
-        </div>
+      ) : closed ? null : qty > 0 ? (
+        <Stepper item={item} qty={qty} onChange={onChange} />
       ) : (
         <button
           type="button"
@@ -41,6 +44,18 @@ export default function ItemRow({ item, qty, onChange }) {
         >
           + {t('item.add')}
         </button>
+      )}
+
+      {/* Loose produce: jump straight to the usual weights */}
+      {qty > 0 && item.inStock && !closed && item.unit === 'kg' && (
+        <div className="quick" role="group" aria-label={t('item.quick', { name: name(item) })}>
+          {QUICK_KG.map((weight) => (
+            <button key={weight} type="button" aria-pressed={qty === weight} onClick={() => onSet(item, weight)}>
+              {qtyLabel(item, weight, t)}
+            </button>
+          ))}
+          <span className="quick-amount">= {rupees(Math.round(item.price * qty * 100) / 100)}</span>
+        </div>
       )}
     </li>
   );

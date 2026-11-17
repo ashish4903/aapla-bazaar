@@ -1,25 +1,32 @@
 import { useState } from 'react';
+import Stepper from './Stepper';
 import useLang from '../lib/useLang';
-import { basketTotal, orderMessage, qtyLabel, rupees, whatsappUrl } from '../lib/order';
+import { orderMessage, orderTotals, rupees, whatsappUrl } from '../lib/order';
 import { read, write } from '../lib/storage';
+import { CUSTOMER_KEY } from '../lib/keys';
 
-const KEY = 'aapla-bazaar-customer-v1';
-
-export default function OrderForm({ shop, lines, onBack }) {
+/** The order as a bill, then who it is for */
+export default function OrderForm({ shop, lines, onChange, onBack, onSent }) {
   const { t, name } = useLang();
-  const [customer, setCustomer] = useState(() => ({
-    name: '',
-    address: '',
-    note: '',
-    ...read(KEY, {}),
-    mode: shop.pickup ? 'pickup' : 'delivery',
-  }));
+  const [customer, setCustomer] = useState(() => {
+    const saved = read(CUSTOMER_KEY, {});
+    const wanted = saved.mode === 'delivery' ? 'delivery' : 'pickup';
+    return {
+      name: saved.name ?? '',
+      address: saved.address ?? '',
+      note: '',
+      mode: shop[wanted] ? wanted : shop.pickup ? 'pickup' : 'delivery',
+    };
+  });
   const [showErrors, setShowErrors] = useState(false);
 
   const set = (field) => (e) => setCustomer((c) => ({ ...c, [field]: e.target.value }));
+  const delivery = customer.mode === 'delivery';
+  const { items, charge, total } = orderTotals(shop, lines, customer.mode);
   const errors = [
+    delivery && shop.minOrder > items && t('order.needMin', { amount: rupees(shop.minOrder) }),
     !customer.name.trim() && t('order.needName'),
-    customer.mode === 'delivery' && !customer.address.trim() && t('order.needAddress'),
+    delivery && !customer.address.trim() && t('order.needAddress'),
   ].filter(Boolean);
   const url = whatsappUrl(shop.whatsapp, orderMessage({ shop, lines, customer, t, name }));
 
@@ -30,7 +37,9 @@ export default function OrderForm({ shop, lines, onBack }) {
       return;
     }
     // Remembered on this phone only, for the next order
-    write(KEY, { name: customer.name, address: customer.address });
+    write(CUSTOMER_KEY, { name: customer.name, address: customer.address, mode: customer.mode });
+    // After the link has opened WhatsApp
+    setTimeout(() => onSent(total), 0);
   };
 
   return (
@@ -40,18 +49,45 @@ export default function OrderForm({ shop, lines, onBack }) {
       </button>
       <h2 id="order-title">{t('order.title')}</h2>
 
-      <ul className="order-lines">
+      {shop.pickup && shop.delivery && (
+        <fieldset className="field">
+          <legend>{t('order.how')}</legend>
+          <div className="choices">
+            {['pickup', 'delivery'].map((mode) => (
+              <label key={mode} className="choice">
+                <input type="radio" name="mode" value={mode} checked={customer.mode === mode} onChange={set('mode')} />
+                {t(`order.${mode}`)}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+
+      <ul className="bill">
         {lines.map(({ item, qty, amount }) => (
           <li key={item.id}>
-            <span>
-              {item.icon} {name(item)} · {qtyLabel(item, qty, t)}
+            <span className="order-item">
+              <span aria-hidden="true">{item.icon}</span> {name(item)}
+              <small>{rupees(amount)}</small>
             </span>
-            <span>{rupees(amount)}</span>
+            <Stepper item={item} qty={qty} onChange={onChange} />
           </li>
         ))}
-        <li className="order-total">
+        {charge > 0 && (
+          <>
+            <li className="bill-sum">
+              <span>{t('order.items')}</span>
+              <span>{rupees(items)}</span>
+            </li>
+            <li className="bill-sum">
+              <span>{t('order.charge')}</span>
+              <span>{rupees(charge)}</span>
+            </li>
+          </>
+        )}
+        <li className="bill-total">
           <span>{t('order.total')}</span>
-          <span>{rupees(basketTotal(lines))}</span>
+          <span>{rupees(total)}</span>
         </li>
       </ul>
 
@@ -60,19 +96,7 @@ export default function OrderForm({ shop, lines, onBack }) {
         <input type="text" value={customer.name} onChange={set('name')} autoComplete="name" />
       </label>
 
-      {shop.pickup && shop.delivery && (
-        <fieldset className="field">
-          <legend>{t('order.how')}</legend>
-          {['pickup', 'delivery'].map((mode) => (
-            <label key={mode} className="choice">
-              <input type="radio" name="mode" value={mode} checked={customer.mode === mode} onChange={set('mode')} />
-              {t(`order.${mode}`)}
-            </label>
-          ))}
-        </fieldset>
-      )}
-
-      {customer.mode === 'delivery' && (
+      {delivery && (
         <label className="field">
           <span>{t('order.address')}</span>
           <textarea rows="2" value={customer.address} onChange={set('address')} />
@@ -94,7 +118,7 @@ export default function OrderForm({ shop, lines, onBack }) {
         </ul>
       )}
 
-      <a className="primary send" href={url} target="_blank" rel="noreferrer" onClick={onSend}>
+      <a className="primary wide send" href={url} target="_blank" rel="noreferrer" onClick={onSend}>
         {t('order.send')}
       </a>
       <p className="private-note">{t('order.private')}</p>

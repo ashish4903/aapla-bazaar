@@ -25,7 +25,7 @@ describe('basket', () => {
   });
 
   it('prices each line and the total, leaving out sold-out items', () => {
-    const lines = basketLines(shop, { tomato: 0.75, methi: 2, cabbage: 1 });
+    const lines = basketLines(shop.items, { tomato: 0.75, methi: 2, cabbage: 1 });
     expect(lines.map((l) => [l.item.id, l.amount])).toEqual([
       ['tomato', 22.5],
       ['methi', 30],
@@ -54,7 +54,7 @@ describe('quantities', () => {
 });
 
 describe('WhatsApp order', () => {
-  const lines = basketLines(shop, { tomato: 0.5, methi: 1 });
+  const lines = basketLines(shop.items, { tomato: 0.5, methi: 1 });
   const name = (thing) => thing.name.mr;
 
   it('lists the items, total, name and delivery address in Marathi', () => {

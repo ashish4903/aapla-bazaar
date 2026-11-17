@@ -1,66 +1,32 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import LanguageProvider from './components/LanguageProvider';
-import ShopHeader from './components/ShopHeader';
-import ItemRow from './components/ItemRow';
-import BasketBar from './components/BasketBar';
-import OrderForm from './components/OrderForm';
-import useLang from './lib/useLang';
-import { loadShop } from './lib/shop';
-import { basketLines, changeQty } from './lib/order';
-import { read, write } from './lib/storage';
+import HomeView from './components/HomeView';
+import ShopView from './components/ShopView';
+import VendorView from './components/VendorView';
+import BadLink from './components/BadLink';
+import useRoute from './lib/useRoute';
+import { decodeShop } from './lib/shop';
+import { read } from './lib/storage';
+import { MY_SHOP_KEY } from './lib/keys';
 
-const BASKET_KEY = 'aapla-bazaar-basket-v1';
+function Views() {
+  const { view, code, page } = useRoute();
+  const shop = useMemo(() => (view === 'shop' ? decodeShop(code) : null), [view, code]);
 
-function Shop() {
-  const { t } = useLang();
-  const [shop, setShop] = useState(null);
-  const [basket, setBasket] = useState(() => read(BASKET_KEY, {}));
-  const [ordering, setOrdering] = useState(false);
-
+  // A seller who opens the app plainly lands on their own shop
   useEffect(() => {
-    loadShop().then(setShop);
+    if (window.location.hash === '' && read(MY_SHOP_KEY, null)?.setupDone) window.location.hash = '#/my-shop';
   }, []);
 
-  useEffect(() => {
-    write(BASKET_KEY, basket);
-  }, [basket]);
-
-  if (!shop) return <p className="loading">{t('shop.loading')}</p>;
-
-  const lines = basketLines(shop, basket);
-  const showOrder = ordering && lines.length > 0;
-
-  return (
-    <>
-      <ShopHeader shop={shop} />
-      <main>
-        {showOrder ? (
-          <OrderForm shop={shop} lines={lines} onBack={() => setOrdering(false)} />
-        ) : (
-          <section aria-labelledby="today">
-            <h2 id="today">{t('shop.today')}</h2>
-            <ul className="items">
-              {shop.items.map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  qty={basket[item.id] ?? 0}
-                  onChange={(it, dir) => setBasket((b) => changeQty(b, it, dir))}
-                />
-              ))}
-            </ul>
-          </section>
-        )}
-      </main>
-      {!showOrder && <BasketBar lines={lines} onOrder={() => setOrdering(true)} />}
-    </>
-  );
+  if (view === 'vendor') return <VendorView page={page} />;
+  if (view === 'shop') return shop ? <ShopView key={code} shop={shop} code={code} /> : <BadLink />;
+  return <HomeView />;
 }
 
 export default function App() {
   return (
     <LanguageProvider>
-      <Shop />
+      <Views />
     </LanguageProvider>
   );
 }

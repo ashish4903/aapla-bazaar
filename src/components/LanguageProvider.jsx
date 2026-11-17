@@ -13,7 +13,7 @@ export default function LanguageProvider({ children }) {
   }, [lang]);
 
   const value = useMemo(() => {
-    const pick = (pair) => pair?.[lang] ?? pair?.en ?? '';
+    const pick = (pair) => (typeof pair === 'string' ? pair : (pair?.[lang] ?? pair?.en ?? ''));
     return {
       lang,
       setLang: (next) => {
