@@ -3,7 +3,7 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event';
 import App from './App';
 import { decodeShop, emptyShop, encodeBackup, encodeShop, todayStamp } from './lib/shop';
-import { MY_SHOP_KEY } from './lib/keys';
+import { CUSTOMERS_KEY, FAVOURITES_KEY, MY_SHOP_KEY } from './lib/keys';
 
 // Made-up test shop: the number is all zeros on purpose
 const shop = {
@@ -197,6 +197,59 @@ describe('a shop link', () => {
     expect(summary()).toBe('2 वस्तू · ₹45');
   });
 
+  it('keeps the buyer’s usual items on top, and remembers them', async () => {
+    const user = userEvent.setup();
+    openShop();
+    await user.click(screen.getByRole('button', { name: 'केळी नेहमीच्या वस्तूंमध्ये ठेवा' }));
+    const headings = () => screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+    expect(headings()).toEqual(['♥ तुमच्या नेहमीच्या वस्तू', '★ आजचे खास', 'भाज्या']);
+    expect(Object.values(JSON.parse(localStorage.getItem(FAVOURITES_KEY)))).toEqual([['banana']]);
+    cleanup();
+
+    render(<App />);
+    expect(headings()[0]).toBe('♥ तुमच्या नेहमीच्या वस्तू');
+    await user.click(screen.getByRole('button', { name: 'केळी नेहमीच्या वस्तूंमध्ये ठेवा' }));
+    expect(headings()).toEqual(['★ आजचे खास', 'भाज्या', 'फळे']);
+  });
+
+  it('puts the chosen time in the order, and switches to large text', async () => {
+    const user = userEvent.setup();
+    openShop();
+    await user.click(screen.getByRole('button', { name: 'केळी घ्या' }));
+    await user.click(screen.getByRole('button', { name: /ऑर्डर करा/ }));
+    const send = () => messageOf(screen.getByRole('link', { name: 'WhatsApp वर ऑर्डर पाठवा' }));
+    expect(send()).not.toContain('कधी हवे?');
+    await user.click(screen.getByRole('button', { name: 'आज संध्याकाळी' }));
+    expect(send()).toContain('कधी हवे?: आज संध्याकाळी');
+    await user.keyboard('{Escape}');
+
+    await user.click(screen.getByRole('button', { name: 'मोठी अक्षरे' }));
+    expect(document.documentElement.classList.contains('big-text')).toBe(true);
+    await user.click(screen.getByRole('button', { name: 'मोठी अक्षरे' }));
+    expect(document.documentElement.classList.contains('big-text')).toBe(false);
+  });
+
+  it('reads today’s rates aloud where the phone can speak', async () => {
+    const user = userEvent.setup();
+    const spoken = [];
+    window.SpeechSynthesisUtterance = class {
+      constructor(text) {
+        this.text = text;
+      }
+    };
+    window.speechSynthesis = { getVoices: () => [], cancel: () => {}, speak: (u) => spoken.push(u) };
+    openShop();
+    await user.click(screen.getByRole('button', { name: /भाव ऐका/ }));
+    // Specials first, sold-out items left out
+    expect(spoken[0].text).toBe(
+      'भाजी भांडार. आजचे भाव. मेथी, 15 रुपये जुडी. टोमॅटो, 30 रुपये किलो. कांदा, 20 रुपये किलो. केळी, 50 रुपये डझन.',
+    );
+    expect(spoken[0].lang).toBe('mr-IN');
+    expect(screen.getByRole('button', { name: /थांबवा/ })).toBeTruthy();
+    delete window.speechSynthesis;
+    delete window.SpeechSynthesisUtterance;
+  });
+
   it('offers to add the app to the phone only when the browser allows it', async () => {
     const user = userEvent.setup();
     openShop();
@@ -362,13 +415,90 @@ describe('my shop', () => {
       ['गूळ', 60, true, true],
     ]);
 
-    // Sending is remembered; a later price change asks for a resend and shows the last price
+    // Sending is remembered; a later price change asks for a resend
     dontLeave(share());
     await user.click(share());
     expect(screen.getByRole('status').textContent).toMatch(/^✓ आजचे भाव .+ ला पाठवले$/);
     await user.click(screen.getByRole('button', { name: 'टोमॅटो चा भाव ५ ने कमी' }));
     expect(screen.getByRole('status').textContent).toBe('भाव बदलले आहेत. पुन्हा पाठवा.');
-    expect(screen.getByText('मागचा भाव ₹35')).toBeTruthy();
+  });
+
+  it('compares today’s prices with the last earlier day, and tells buyers what got cheaper', async () => {
+    const user = userEvent.setup();
+    const yesterday = Date.now() - 24 * 60 * 60 * 1000;
+    localStorage.setItem(
+      MY_SHOP_KEY,
+      JSON.stringify({
+        ...shop,
+        setupDone: true,
+        sentAt: yesterday,
+        lastPrices: { tomato: 40, onion: 15 },
+        items: [
+          { id: 'tomato', price: 30, unit: 'kg', inStock: true, special: false },
+          { id: 'onion', price: 20, unit: 'kg', inStock: true, special: false },
+        ],
+      }),
+    );
+    window.location.hash = '#/my-shop';
+    render(<App />);
+    expect(screen.getByText('मागचा भाव ₹40')).toBeTruthy();
+    expect(screen.getByText('मागचा भाव ₹15')).toBeTruthy();
+
+    const share = screen.getByRole('link', { name: 'आजचे भाव WhatsApp वर पाठवा' });
+    const text = messageOf(share);
+    expect(text).toContain('• टोमॅटो: ₹30 / किलो (आधी ₹40)');
+    expect(text).toContain('• कांदा: ₹20 / किलो\n');
+
+    // Sending today does not lose yesterday's prices
+    dontLeave(share);
+    await user.click(share);
+    expect(screen.getByRole('status').textContent).toMatch(/^✓/);
+    expect(screen.getByText('मागचा भाव ₹40')).toBeTruthy();
+
+    // The buyer sees the old price struck through, only where today is cheaper
+    cleanup();
+    window.location.hash = `#/s/${text.match(/#\/s\/(\S+)/)[1]}`;
+    render(<App />);
+    expect(screen.getByText('↓ ₹10 स्वस्त')).toBeTruthy();
+    expect(screen.getByLabelText('आधी ₹40').textContent).toBe('₹40');
+    expect(screen.queryByLabelText('आधी ₹15')).toBeNull();
+  });
+
+  it('keeps regular customers and their udhari on the phone, with rates and reminders on WhatsApp', async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(
+      MY_SHOP_KEY,
+      JSON.stringify({ ...shop, setupDone: true, items: [{ id: 'tomato', price: 30, unit: 'kg', inStock: true }] }),
+    );
+    window.location.hash = '#/my-shop/customers';
+    render(<App />);
+    expect(screen.getByRole('status').textContent).toBe('कोणाचीही उधारी बाकी नाही');
+
+    await user.type(screen.getByLabelText('नाव'), 'सीमा');
+    await user.type(screen.getByLabelText('WhatsApp नंबर (ऐच्छिक)'), '0000000000');
+    await user.click(screen.getByRole('button', { name: /^\+ जोडा$/ }));
+    expect(screen.getByText('हिशोब पूर्ण')).toBeTruthy();
+
+    // Today's rates go straight to that customer's number
+    const send = screen.getByRole('link', { name: 'सीमा ला आजचे भाव पाठवा' });
+    expect(send.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/910000000000\?text=/);
+    expect(messageOf(send)).toContain('• टोमॅटो: ₹30 / किलो');
+
+    // ₹120 on credit, then ₹50 paid
+    await user.click(screen.getByRole('button', { name: /उधारी$/ }));
+    const sheet = within(screen.getByRole('dialog', { name: 'सीमा' }));
+    await user.type(sheet.getByLabelText('रक्कम'), '120');
+    await user.click(sheet.getByRole('button', { name: /उधार दिले/ }));
+    await user.type(sheet.getByLabelText('रक्कम'), '50');
+    await user.click(sheet.getByRole('button', { name: /पैसे मिळाले/ }));
+    expect(sheet.getByText('₹70 येणे बाकी')).toBeTruthy();
+
+    const remind = sheet.getByRole('link', { name: /आठवण पाठवा/ });
+    expect(messageOf(remind)).toBe('नमस्ते सीमा, भाजी भांडार कडे तुमची ₹70 उधारी बाकी आहे. सोयीनुसार द्यावी. धन्यवाद!');
+
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('status').textContent).toBe('एकूण येणे बाकी: ₹70');
+    expect(JSON.parse(localStorage.getItem(CUSTOMERS_KEY))[0].entries.map((entry) => entry.amount)).toEqual([120, -50]);
   });
 
   it('opens straight on the seller’s day once a shop exists, with items and details a tap away', async () => {

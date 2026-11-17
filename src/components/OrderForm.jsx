@@ -5,6 +5,8 @@ import { orderMessage, orderTotals, rupees, whatsappUrl } from '../lib/order';
 import { read, write } from '../lib/storage';
 import { CUSTOMER_KEY } from '../lib/keys';
 
+const WHEN = ['now', 'evening', 'tomorrow'];
+
 /**
  * The order as a bill, then who it is for. A returning customer's name and
  * address are already filled in and shown as one line, so sending is one tap.
@@ -18,6 +20,7 @@ export default function OrderForm({ shop, lines, onChange, onSent }) {
       name: saved.name ?? '',
       address: saved.address ?? '',
       note: '',
+      when: 'now',
       mode: shop[wanted] ? wanted : shop.pickup ? 'pickup' : 'delivery',
     };
   });
@@ -99,6 +102,23 @@ export default function OrderForm({ shop, lines, onChange, onSent }) {
           </div>
         </fieldset>
       )}
+
+      <fieldset className="field">
+        <legend>{t('order.when')}</legend>
+        <div className="chips wrap">
+          {WHEN.map((when) => (
+            <button
+              key={when}
+              type="button"
+              className="chip"
+              aria-pressed={customer.when === when}
+              onClick={() => setCustomer((c) => ({ ...c, when }))}
+            >
+              {t(`when.${when}`)}
+            </button>
+          ))}
+        </div>
+      </fieldset>
 
       {editing ? (
         <>

@@ -4,6 +4,7 @@ import ItemRow from './ItemRow';
 import BasketBar from './BasketBar';
 import OrderForm from './OrderForm';
 import OrderSent from './OrderSent';
+import ListenButton from './ListenButton';
 import Sheet from './Sheet';
 import useLang from '../lib/useLang';
 import useStored from '../lib/useStored';
@@ -11,7 +12,7 @@ import { CATEGORIES } from '../lib/catalogue';
 import { shopItems, shopKey } from '../lib/shop';
 import { basketLines, changeQty, setQty } from '../lib/order';
 import { write } from '../lib/storage';
-import { BASKETS_KEY, LAST_ORDERS_KEY, LAST_SHOP_KEY } from '../lib/keys';
+import { BASKETS_KEY, FAVOURITES_KEY, LAST_ORDERS_KEY, LAST_SHOP_KEY } from '../lib/keys';
 
 // A short buzz on phones that have one, so a tap feels answered
 const buzz = () => navigator.vibrate?.(8);
@@ -23,6 +24,7 @@ export default function ShopView({ shop, code }) {
   const key = shopKey(shop);
   const [baskets, setBaskets] = useStored(BASKETS_KEY, {});
   const [lastOrders, setLastOrders] = useStored(LAST_ORDERS_KEY, {});
+  const [favourites, setFavourites] = useStored(FAVOURITES_KEY, {});
   const [step, setStep] = useState('browse'); // browse | order | sent
   const [paid, setPaid] = useState(0);
   const [query, setQuery] = useState('');
@@ -46,6 +48,13 @@ export default function ShopView({ shop, code }) {
   };
   const lines = closed ? [] : basketLines(items, basket);
 
+  const favs = new Set(favourites[key] ?? []);
+  const onFavourite = (item) =>
+    setFavourites((all) => {
+      const mine = all[key] ?? [];
+      return { ...all, [key]: mine.includes(item.id) ? mine.filter((id) => id !== item.id) : [...mine, item.id] };
+    });
+
   const last = lastOrders[key];
   const canRepeat = !closed && lines.length === 0 && last && basketLines(items, last).length > 0;
 
@@ -57,12 +66,18 @@ export default function ShopView({ shop, code }) {
       (cat === 'all' || item.cat === cat) &&
       (!q || item.name.mr.toLowerCase().includes(q) || item.name.en.toLowerCase().includes(q)),
   );
-  // Unfiltered: today's specials first, then the rest by kind
+  // Unfiltered: the customer's usual items, then today's specials, then the rest by kind
+  const isFav = (item) => favs.has(item.id);
   const groups = filtering
     ? [{ key: 'found', items: shown }]
     : [
-        { key: 'special', title: `★ ${t('shop.special')}`, items: items.filter((item) => item.special) },
-        ...cats.map((c) => ({ key: c, title: t(`cat.${c}`), items: items.filter((item) => item.cat === c && !item.special) })),
+        { key: 'fav', title: `♥ ${t('fav.title')}`, items: items.filter(isFav) },
+        { key: 'special', title: `★ ${t('shop.special')}`, items: items.filter((item) => item.special && !isFav(item)) },
+        ...cats.map((c) => ({
+          key: c,
+          title: t(`cat.${c}`),
+          items: items.filter((item) => item.cat === c && !item.special && !isFav(item)),
+        })),
       ].filter((group) => group.items.length > 0);
 
   const onSent = (total) => {
@@ -82,7 +97,10 @@ export default function ShopView({ shop, code }) {
         <ShopHeader shop={shop} />
         <main>
           <section aria-labelledby="today">
-            <h2 id="today">{t('shop.today')}</h2>
+            <div className="section-head">
+              <h2 id="today">{t('shop.today')}</h2>
+              <ListenButton shop={shop} items={items} />
+            </div>
 
             {closed && (
               <p className="notice" role="status">
@@ -134,8 +152,10 @@ export default function ShopView({ shop, code }) {
                       item={item}
                       qty={closed ? 0 : (basket[item.id] ?? 0)}
                       closed={closed}
+                      favourite={isFav(item)}
                       onChange={onChange}
                       onSet={onSet}
+                      onFavourite={onFavourite}
                     />
                   ))}
                 </ul>

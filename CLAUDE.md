@@ -18,6 +18,10 @@ React (Vite) app for small village shops: customers see today's rates and order 
 - `src/lib/order.js`: basket, prices, quantity labels, the customer's order message, the vendor's rates message, WhatsApp links
 - `src/lib/i18n.js`: all interface text; use `useLang()` (`t`, `name`, `pick`) in components and never hard-code visible text. A test fails if Marathi or English is missing a key
 - `src/lib/storage.js`: localStorage that never throws
+- `src/lib/ledger.js` + `SellerCustomers.jsx` / `CustomerSheet.jsx`: the seller's regular customers and udhari. Other people's names and numbers: phone only, never in a link, the backup or the repo
+- `src/lib/share.js`: today's link and rates message, shared by the Today and Customers screens
+- `src/lib/speak.js`: browser speech only (Marathi, then Hindi voice); no network
+- Cheaper today: `priceBase(shop)` in `shop.js` is the last earlier day's prices; the link carries an item's earlier price only when today's is lower
 - `src/lib/qr.js` + `QrCode.jsx`: QR codes as SVG, always black on white. The poster's QR (`SellerPoster.jsx`) is a WhatsApp link to the shop, never a rates link, so it cannot go stale
 - Backup: `encodeBackup`/`decodeBackup` in `shop.js`, opened at `#/restore/<code>` (`RestoreView.jsx`), which always asks before saving
 - `public/sw.js` + `public/manifest.webmanifest`: install to the home screen and offline loading. The worker is network first and registered only in the built site (`src/main.jsx`); `src/lib/useInstall.js` holds the browser's install offer. `public/icon-192.png` and `icon-512.png` are rendered from `public/icon.svg`

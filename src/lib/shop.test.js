@@ -12,6 +12,7 @@ import {
   whatsappDigits,
 } from './shop';
 import { qrPath } from './qr';
+import { addCustomer, addEntry, balanceOf, byDue, removeCustomer, totalDue } from './ledger';
 import { orderMessage, orderTotals, basketLines, ratesMessage, setQty, shortOfMinimum } from './order';
 import { translate } from './i18n';
 
@@ -89,6 +90,52 @@ describe('shop link', () => {
     const [tomato, , , jaggery] = shopItems(shop);
     expect(tomato).toMatchObject({ icon: '🍅', cat: 'veg', name: { mr: 'टोमॅटो', en: 'Tomato' }, price: 30, special: true });
     expect(jaggery).toMatchObject({ cat: 'other', name: { mr: 'गूळ', en: 'गूळ' } });
+  });
+});
+
+describe('cheaper today', () => {
+  const yesterday = Date.now() - 24 * 60 * 60 * 1000;
+  const priced = { ...shop, sentAt: yesterday, lastPrices: { tomato: 40, methi: 10, x1: 80 } };
+
+  it('sends the earlier price with the link only where today is cheaper', () => {
+    const back = decodeShop(encodeShop(priced, 20261116));
+    expect(back.items.map((item) => [item.id, item.price, item.was])).toEqual([
+      ['tomato', 30, 40],
+      ['methi', 15, undefined],
+      ['x1', 60, 80],
+    ]);
+    expect(shopItems(back).map((item) => item.was)).toEqual([40, 0, 80]);
+  });
+
+  it('keeps comparing with the earlier day after rates are sent again today', () => {
+    const resent = { ...priced, sentAt: Date.now(), lastPrices: { tomato: 30 }, basePrices: { tomato: 40 } };
+    expect(shopItems(resent)[0].was).toBe(40);
+    expect(shopItems({ ...resent, basePrices: undefined })[0].was).toBe(0);
+  });
+
+  it('ignores an earlier price that is not higher', () => {
+    const code = btoa(JSON.stringify([1, 'Shop', '', '910000000000', 1, '', 20261116, [['tomato', 30, 0, 1, 0, 30], ['onion', 20, 0, 1, 0, 'x']]]));
+    expect(decodeShop(code).items.map((item) => item.was)).toEqual([undefined, undefined]);
+  });
+});
+
+describe('udhari', () => {
+  it('adds customers, credit and payments, and totals what is owed', () => {
+    let list = addCustomer([], ' सीमा ', '00000 00000x');
+    list = addCustomer(list, 'रमेश', '');
+    const [seema, ramesh] = list;
+    expect(seema).toMatchObject({ name: 'सीमा', phone: '00000 00000', entries: [] });
+
+    list = addEntry(list, seema.id, 120, 1);
+    list = addEntry(list, seema.id, -50, 2);
+    list = addEntry(list, ramesh.id, -30, 3);
+    list = addEntry(list, ramesh.id, 0, 4);
+    list = addEntry(list, ramesh.id, Number.NaN, 5);
+    expect(list.map(balanceOf)).toEqual([70, -30]);
+    // Money paid ahead by one customer does not hide what another owes
+    expect(totalDue(list)).toBe(70);
+    expect(byDue(list).map((c) => c.name)).toEqual(['सीमा', 'रमेश']);
+    expect(removeCustomer(list, seema.id).map((c) => c.name)).toEqual(['रमेश']);
   });
 });
 

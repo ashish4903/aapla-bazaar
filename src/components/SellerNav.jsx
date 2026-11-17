@@ -2,6 +2,7 @@ import useLang from '../lib/useLang';
 
 const TABS = [
   { page: 'today', href: '#/my-shop', icon: '🗓️' },
+  { page: 'customers', href: '#/my-shop/customers', icon: '👥' },
   { page: 'items', href: '#/my-shop/items', icon: '🥕' },
   { page: 'edit', href: '#/my-shop/edit', icon: '🏪' },
 ];

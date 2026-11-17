@@ -60,6 +60,7 @@ export function orderMessage({ shop, lines, customer, t, name }) {
       ? `${t('order.delivery')}: ${customer.address.trim()}`
       : t('order.pickup'),
   );
+  if (customer.when && customer.when !== 'now') out.push(`${t('order.when')}: ${t(`when.${customer.when}`)}`);
   if (customer.note?.trim()) out.push(`${t('order.note')}: ${customer.note.trim()}`);
   return out.join('\n');
 }
@@ -73,7 +74,7 @@ export function ratesMessage({ shop, items, link, date, t, name }) {
     const label = `${item.special ? '⭐ ' : '• '}${name(item)}`;
     out.push(
       item.inStock
-        ? `${label}: ${rupees(item.price)} / ${t(`item.per.${item.unit}`)}`
+        ? `${label}: ${rupees(item.price)} / ${t(`item.per.${item.unit}`)}${item.was > 0 ? ` (${t('item.was', { amount: rupees(item.was) })})` : ''}`
         : `${label}: ${t('item.out')}`,
     );
   }

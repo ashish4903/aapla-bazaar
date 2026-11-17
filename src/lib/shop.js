@@ -9,8 +9,9 @@ import { catalogueItem } from './catalogue';
  * Stored item: { id, price, unit, inStock, special, label? }. `label` is the
  * name of an item the vendor typed that is not in the catalogue.
  *
- * The vendor's copy also keeps `setupDone`, `sentAt`, `sentCode` and
- * `lastPrices`; those never go into the link.
+ * The vendor's copy also keeps `setupDone`, `sentAt`, `sentCode`, `lastPrices`
+ * (prices at the last send) and `basePrices` (prices at the last send on an
+ * earlier day); those never go into the link as such.
  */
 export const UNITS = ['kg', 'bunch', 'piece', 'dozen'];
 
@@ -42,10 +43,21 @@ export function whatsappDigits(raw) {
 
 export const validUpi = (id) => /^[\w.-]{2,}@[a-zA-Z]{2,}$/.test(id);
 
+/**
+ * The prices today's are compared with: what was sent on the last earlier day.
+ * { [itemId]: price }
+ */
+export function priceBase(shop) {
+  const sentToday = shop.sentAt > 0 && todayStamp(new Date(shop.sentAt)) === todayStamp();
+  return (sentToday ? shop.basePrices : shop.lastPrices) ?? {};
+}
+
 /** Items ready to show: catalogue name and picture plus the shop's price */
 export function shopItems(shop) {
+  const before = priceBase(shop);
   return shop.items.map((item) => {
     const base = catalogueItem(item.id);
+    const was = item.was ?? before[item.id] ?? 0;
     return {
       id: item.id,
       icon: base?.icon ?? '🧺',
@@ -55,6 +67,8 @@ export function shopItems(shop) {
       unit: item.unit,
       inStock: item.inStock,
       special: Boolean(item.special),
+      // The earlier price, only when today's is lower
+      was: item.price > 0 && was > item.price ? was : 0,
     };
   });
 }
@@ -107,11 +121,13 @@ const money = (value) => (Number.isFinite(value) && value > 0 && value <= 100000
 /**
  * The shop as a short code for a link. Items without a price are left out.
  * [1, name, place, whatsapp, modes, upi, day,
- *  [[id, price, unit, flags, label?]],   flags: 1 in stock, 2 today's special
+ *  [[id, price, unit, flags, label?, was?]],   flags: 1 in stock, 2 today's special;
+ *                                              was: the earlier price when today's is lower
  *  [open, hours, note, deliveryCharge, minOrder]]
  */
 export function encodeShop(shop, stamp = todayStamp()) {
   const upi = shop.upi.trim();
+  const before = priceBase(shop);
   return toBase64Url(
     JSON.stringify([
       1,
@@ -125,7 +141,12 @@ export function encodeShop(shop, stamp = todayStamp()) {
         .filter((item) => item.price > 0)
         .map((item) => {
           const cells = [item.id, item.price, UNITS.indexOf(item.unit), (item.inStock ? 1 : 0) | (item.special ? 2 : 0)];
-          return catalogueItem(item.id) ? cells : [...cells, item.label];
+          const known = catalogueItem(item.id);
+          const was = before[item.id] > item.price ? before[item.id] : 0;
+          if (!known) cells.push(item.label);
+          else if (was) cells.push(0);
+          if (was) cells.push(was);
+          return cells;
         }),
       [shop.open ? 1 : 0, shop.hours.trim(), shop.note.trim(), money(shop.deliveryCharge), money(shop.minOrder)],
     ]),
@@ -144,7 +165,7 @@ export function decodeShop(code) {
     const seen = new Set();
     for (const cells of data[7].slice(0, 200)) {
       if (!Array.isArray(cells)) continue;
-      const [id, price, unit, flags, label] = cells;
+      const [id, price, unit, flags, label, was] = cells;
       const known = typeof id === 'string' && catalogueItem(id);
       if (typeof id !== 'string' || !id || id.length > 24 || seen.has(id)) continue;
       if (!Number.isFinite(price) || price <= 0 || price > 100000 || !UNITS[unit]) continue;
@@ -157,6 +178,7 @@ export function decodeShop(code) {
         inStock: (flags & 1) === 1,
         special: (flags & 2) === 2,
         ...(known ? {} : { label: text(label, 40) }),
+        ...(money(was) > price ? { was: money(was) } : {}),
       });
     }
 
