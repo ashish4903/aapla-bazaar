@@ -1,19 +1,23 @@
+import Stepper from './Stepper';
 import useLang from '../lib/useLang';
-import { qtyLabel, rupees } from '../lib/order';
+import { rupees } from '../lib/order';
 
 export default function ItemRow({ item, qty, onChange }) {
   const { t, name, lang } = useLang();
   const other = lang === 'mr' ? 'en' : 'mr';
+  const state = !item.inStock ? ' is-out' : qty > 0 ? ' is-picked' : '';
   return (
-    <li className={`item${item.inStock ? '' : ' is-out'}`}>
+    <li className={`item${state}`}>
       <span className="item-icon" aria-hidden="true">
         {item.icon}
       </span>
       <div className="item-text">
         <span className="item-name">{name(item)}</span>
-        <span className="item-other" lang={other}>
-          {item.name[other]}
-        </span>
+        {item.name[other] !== name(item) && (
+          <span className="item-other" lang={other}>
+            {item.name[other]}
+          </span>
+        )}
         <span className="item-price">
           <strong>{rupees(item.price)}</strong> / {t(`item.per.${item.unit}`)}
         </span>
@@ -21,17 +25,7 @@ export default function ItemRow({ item, qty, onChange }) {
       {!item.inStock ? (
         <span className="item-out">{t('item.out')}</span>
       ) : qty > 0 ? (
-        <div className="stepper">
-          <button type="button" aria-label={t('item.less', { name: name(item) })} onClick={() => onChange(item, -1)}>
-            −
-          </button>
-          <span className="stepper-qty" aria-live="polite">
-            {qtyLabel(item, qty, t)}
-          </span>
-          <button type="button" aria-label={t('item.more', { name: name(item) })} onClick={() => onChange(item, 1)}>
-            +
-          </button>
-        </div>
+        <Stepper item={item} qty={qty} onChange={onChange} />
       ) : (
         <button
           type="button"

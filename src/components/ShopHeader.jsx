@@ -1,29 +1,32 @@
+import TopBar from './TopBar';
+import ShareButton from './ShareButton';
 import useLang from '../lib/useLang';
+import { dateText, todayStamp } from '../lib/shop';
 
 export default function ShopHeader({ shop }) {
-  const { lang, setLang, t, name, pick } = useLang();
-  const other = lang === 'mr' ? 'en' : 'mr';
+  const { t, lang } = useLang();
+  const stale = shop.date < todayStamp();
   return (
-    <header className="shop-header">
-      <div className="top-bar">
-        <span className="brand">🥬 {t('app.name')}</span>
-        <button
-          type="button"
-          className="lang-switch"
-          lang={other}
-          aria-label={t('lang.switchLabel')}
-          onClick={() => setLang(other)}
-        >
-          {t('lang.switch')}
-        </button>
-      </div>
-      <h1>{name(shop)}</h1>
-      <p className="shop-place">📍 {pick(shop.place)}</p>
-      <ul className="shop-modes">
+    <header className="hero">
+      <TopBar />
+      <h1>{shop.name}</h1>
+      {shop.place && <p className="hero-text">📍 {shop.place}</p>}
+      <ul className="tags">
         {shop.pickup && <li>🛒 {t('shop.pickup')}</li>}
         {shop.delivery && <li>🛵 {t('shop.delivery')}</li>}
+        {shop.date > 0 && <li>🗓️ {t('shop.ratesOf', { date: dateText(shop.date, lang) })}</li>}
       </ul>
-      {shop.demo && <p className="demo-note">{t('shop.demo')}</p>}
+      {stale && (
+        <p className="notice" role="status">
+          {t('shop.stale')}
+        </p>
+      )}
+      <ShareButton
+        className="hero-button"
+        url={window.location.href}
+        title={shop.name}
+        label={`↗ ${t('shop.share')}`}
+      />
     </header>
   );
 }
