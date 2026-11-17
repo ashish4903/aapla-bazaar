@@ -18,6 +18,7 @@ React (Vite) app for small village shops: customers see today's rates and order 
 - `src/lib/order.js`: basket, prices, quantity labels, the customer's order message, the vendor's rates message, WhatsApp links
 - `src/lib/i18n.js`: all interface text; use `useLang()` (`t`, `name`, `pick`) in components and never hard-code visible text. A test fails if Marathi or English is missing a key
 - `src/lib/storage.js`: localStorage that never throws
+- `public/sw.js` + `public/manifest.webmanifest`: install to the home screen and offline loading. The worker is network first and registered only in the built site (`src/main.jsx`); `src/lib/useInstall.js` holds the browser's install offer. `public/icon-192.png` and `icon-512.png` are rendered from `public/icon.svg`
 - `src/components/`: one small component per file
 - `src/index.css`: all styles, mobile-first, system fonts only
 

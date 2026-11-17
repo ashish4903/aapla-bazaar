@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import ShopHeader from './ShopHeader';
 import ItemRow from './ItemRow';
 import BasketBar from './BasketBar';
 import OrderForm from './OrderForm';
 import OrderSent from './OrderSent';
+import Sheet from './Sheet';
 import useLang from '../lib/useLang';
 import useStored from '../lib/useStored';
 import { CATEGORIES } from '../lib/catalogue';
@@ -11,6 +12,9 @@ import { shopItems, shopKey } from '../lib/shop';
 import { basketLines, changeQty, setQty } from '../lib/order';
 import { write } from '../lib/storage';
 import { BASKETS_KEY, LAST_ORDERS_KEY, LAST_SHOP_KEY } from '../lib/keys';
+
+// A short buzz on phones that have one, so a tap feels answered
+const buzz = () => navigator.vibrate?.(8);
 
 /** What a customer sees: the shop a link carries */
 export default function ShopView({ shop, code }) {
@@ -32,8 +36,14 @@ export default function ShopView({ shop, code }) {
   const closed = !shop.open;
   const basket = baskets[key] ?? {};
   const setBasket = (change) => setBaskets((all) => ({ ...all, [key]: change(all[key] ?? {}) }));
-  const onChange = (item, direction) => setBasket((b) => changeQty(b, item, direction));
-  const onSet = (item, qty) => setBasket((b) => setQty(b, item, qty));
+  const onChange = (item, direction) => {
+    buzz();
+    setBasket((b) => changeQty(b, item, direction));
+  };
+  const onSet = (item, qty) => {
+    buzz();
+    setBasket((b) => setQty(b, item, qty));
+  };
   const lines = closed ? [] : basketLines(items, basket);
 
   const last = lastOrders[key];
@@ -61,77 +71,91 @@ export default function ShopView({ shop, code }) {
     setBasket(() => ({}));
     setStep('sent');
   };
+  const close = useCallback(() => setStep('browse'), []);
 
-  let body;
-  if (step === 'sent') {
-    body = <OrderSent shop={shop} amount={paid} onBack={() => setStep('browse')} />;
-  } else if (step === 'order' && lines.length > 0) {
-    body = <OrderForm shop={shop} lines={lines} onChange={onChange} onBack={() => setStep('browse')} onSent={onSent} />;
-  } else {
-    body = (
-      <section aria-labelledby="today">
-        <h2 id="today">{t('shop.today')}</h2>
+  // The order and what follows slide up over the shop; an emptied order closes itself
+  const sheet = step === 'sent' ? 'sent' : step === 'order' && lines.length > 0 ? 'order' : null;
 
-        {closed && (
-          <p className="notice" role="status">
-            {t('shop.closedNote')}
-          </p>
-        )}
-
-        <div className="toolbar">
-          <input
-            type="search"
-            className="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={`🔍 ${t('shop.search')}`}
-            aria-label={t('shop.search')}
-          />
-          {cats.length > 1 && (
-            <div className="chips">
-              {['all', ...cats].map((c) => (
-                <button key={c} type="button" className="chip" aria-pressed={cat === c} onClick={() => setCat(c)}>
-                  {t(`cat.${c}`)}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {canRepeat && (
-          <button type="button" className="repeat" onClick={() => setBasket(() => last)}>
-            🔁 {t('shop.repeat')}
-          </button>
-        )}
-
-        {shown.length === 0 && <p className="empty">{t('shop.noMatch')}</p>}
-        {groups.map((group) => (
-          <div key={group.key} className="group">
-            {group.title && groups.length > 1 && <h3>{group.title}</h3>}
-            <ul className="items">
-              {group.items.map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  qty={closed ? 0 : (basket[item.id] ?? 0)}
-                  closed={closed}
-                  onChange={onChange}
-                  onSet={onSet}
-                />
-              ))}
-            </ul>
-          </div>
-        ))}
-      </section>
-    );
-  }
-
-  const browsing = step === 'browse' || (step === 'order' && lines.length === 0);
   return (
     <>
-      <ShopHeader shop={shop} />
-      <main>{body}</main>
-      {browsing && <BasketBar shop={shop} lines={lines} onOrder={() => setStep('order')} />}
+      <div inert={sheet !== null} aria-hidden={sheet !== null}>
+        <ShopHeader shop={shop} />
+        <main>
+          <section aria-labelledby="today">
+            <h2 id="today">{t('shop.today')}</h2>
+
+            {closed && (
+              <p className="notice" role="status">
+                {t('shop.closedNote')}
+              </p>
+            )}
+
+            <div className="toolbar">
+              <input
+                type="search"
+                className="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={`🔍 ${t('shop.search')}`}
+                aria-label={t('shop.search')}
+              />
+              {cats.length > 1 && (
+                <div className="chips">
+                  {['all', ...cats].map((c) => (
+                    <button key={c} type="button" className="chip" aria-pressed={cat === c} onClick={() => setCat(c)}>
+                      {t(`cat.${c}`)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {canRepeat && (
+              <button
+                type="button"
+                className="repeat"
+                onClick={() => {
+                  setBasket(() => last);
+                  setStep('order');
+                }}
+              >
+                🔁 {t('shop.repeat')}
+              </button>
+            )}
+
+            {shown.length === 0 && <p className="empty">{t('shop.noMatch')}</p>}
+            {groups.map((group) => (
+              <div key={group.key} className="group">
+                {group.title && groups.length > 1 && <h3>{group.title}</h3>}
+                <ul className="items">
+                  {group.items.map((item) => (
+                    <ItemRow
+                      key={item.id}
+                      item={item}
+                      qty={closed ? 0 : (basket[item.id] ?? 0)}
+                      closed={closed}
+                      onChange={onChange}
+                      onSet={onSet}
+                    />
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </section>
+        </main>
+        <BasketBar shop={shop} lines={lines} onOrder={() => setStep('order')} />
+      </div>
+
+      {sheet === 'order' && (
+        <Sheet labelledBy="order-title" onClose={close}>
+          <OrderForm shop={shop} lines={lines} onChange={onChange} onSent={onSent} />
+        </Sheet>
+      )}
+      {sheet === 'sent' && (
+        <Sheet labelledBy="sent-title" onClose={close}>
+          <OrderSent shop={shop} amount={paid} onBack={close} />
+        </Sheet>
+      )}
     </>
   );
 }

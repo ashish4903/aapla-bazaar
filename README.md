@@ -37,6 +37,7 @@ npm run build
 - `src/lib/order.js`: basket, prices, quantities, the WhatsApp messages and links
 - `src/lib/i18n.js`: all interface text in Marathi and English (a test fails if either is missing a key)
 - `src/components/`: one small component per file
+- `public/sw.js`, `public/manifest.webmanifest`, `public/icon*`: install to the home screen and offline loading (network first; only the app's own files are stored)
 - `src/index.css`: all styles, mobile-first, no web fonts
 
 ## Privacy

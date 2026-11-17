@@ -1,6 +1,7 @@
 import TopBar from './TopBar';
 import ShopBasics from './ShopBasics';
 import ShopService from './ShopService';
+import InstallButton from './InstallButton';
 import useLang from '../lib/useLang';
 import { shopProblems } from '../lib/shop';
 
@@ -14,6 +15,7 @@ export default function SellerEdit({ shop, set }) {
         <TopBar />
         <h1>{t('vendor.details')}</h1>
         <p className="hero-text">{t('vendor.saved')}</p>
+        <InstallButton />
       </header>
       <main className="seller">
         <section className="card">

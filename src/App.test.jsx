@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
 import { decodeShop, emptyShop, encodeShop, todayStamp } from './lib/shop';
@@ -178,6 +178,38 @@ describe('a shop link', () => {
     expect(summary()).toBeUndefined();
     await user.click(screen.getByRole('button', { name: /मागची ऑर्डर पुन्हा भरा/ }));
     expect(summary()).toBe('2 वस्तू · ₹45');
+
+    // The repeat opens the order with name and address already there: one tap to send
+    const dialog = screen.getByRole('dialog', { name: 'तुमची ऑर्डर' });
+    expect(within(dialog).getByText('सीमा')).toBeTruthy();
+    expect(within(dialog).getByText('मंदिराजवळ')).toBeTruthy();
+    expect(screen.queryByLabelText('नाव')).toBeNull();
+    expect(messageOf(send())).toContain('घरपोच: मंदिराजवळ');
+
+    // The details can still be changed, and the sheet closes with Escape
+    await user.click(within(dialog).getByRole('button', { name: 'बदला' }));
+    expect(screen.getByLabelText('नाव').value).toBe('सीमा');
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(summary()).toBe('2 वस्तू · ₹45');
+  });
+
+  it('offers to add the app to the phone only when the browser allows it', async () => {
+    const user = userEvent.setup();
+    openShop();
+    expect(screen.queryByRole('button', { name: /फोनवर ॲप म्हणून ठेवा/ })).toBeNull();
+
+    let asked = false;
+    const offer = new Event('beforeinstallprompt');
+    offer.prompt = async () => {
+      asked = true;
+    };
+    act(() => {
+      window.dispatchEvent(offer);
+    });
+    await user.click(screen.getByRole('button', { name: /फोनवर ॲप म्हणून ठेवा/ }));
+    expect(asked).toBe(true);
+    await waitFor(() => expect(screen.queryByRole('button', { name: /फोनवर ॲप म्हणून ठेवा/ })).toBeNull());
   });
 
   it('keeps the basket when the page is reopened', async () => {

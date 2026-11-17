@@ -14,9 +14,14 @@ All notable changes to this project are listed here. The format follows [Keep a 
 - Order as a bill: items, delivery charge and total, with quantities still changeable. Name, address and pickup-or-delivery are remembered on the phone only, and the order becomes a ready-typed WhatsApp message to the shop's number.
 - After ordering: what happens next in three steps, a "Pay by UPI" button with the amount filled in (when the shop has a UPI ID), and "fill my last order again" on the next visit.
 - Home page that offers the shop opened last and explains how a shopkeeper starts. A seller who opens the app lands on their own day. Share button for a shop. Marathi and English throughout.
+- Add to phone: where the browser allows it, a button puts the app on the home screen with its own icon. Once opened, the app also loads on a weak or missing network.
 
 ### Changed
 
+- Items are picture tiles, two to a row, with less to read.
+- The order slides up over the shop instead of replacing it, and closes with ✕, a tap outside or Escape.
+- A returning customer's name and address show as one line with a Change button, and "fill my last order again" opens the order ready to send.
+- A short buzz answers each tap on phones that have one. A seller's price is selected when tapped, so typing replaces it.
 - A fresher look: softer cards, a picked item is highlighted, small animations on adding and on the basket, larger tap areas, and a dark theme.
 
 ### Removed

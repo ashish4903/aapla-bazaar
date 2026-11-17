@@ -1,5 +1,6 @@
 import TopBar from './TopBar';
 import ShareButton from './ShareButton';
+import InstallButton from './InstallButton';
 import useLang from '../lib/useLang';
 import { rupees } from '../lib/order';
 import { callUrl, dateText, todayStamp } from '../lib/shop';
@@ -44,6 +45,7 @@ export default function ShopHeader({ shop }) {
           📞 {t('shop.call')}
         </a>
         <ShareButton className="hero-button" url={window.location.href} title={shop.name} label={`↗ ${t('shop.share')}`} />
+        <InstallButton />
       </div>
     </header>
   );

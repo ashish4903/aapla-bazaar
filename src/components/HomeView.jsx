@@ -1,4 +1,5 @@
 import TopBar from './TopBar';
+import InstallButton from './InstallButton';
 import useLang from '../lib/useLang';
 import { decodeShop } from '../lib/shop';
 import { read } from '../lib/storage';
@@ -17,6 +18,7 @@ export default function HomeView() {
         <TopBar />
         <h1>{t('home.title')}</h1>
         <p className="hero-text">{t('app.tagline')}</p>
+        <InstallButton />
       </header>
       <main>
         {hasShop && (
