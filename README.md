@@ -9,6 +9,7 @@ Today's rates from a local shop, ordered on WhatsApp. Free, Marathi-first, and b
 - **The seller** sets up once in three steps: shop name and WhatsApp number, what they sell, and how customers are served (pickup, delivery charge, minimum order, timings). Each morning they open the app on their day: mark the shop open or closed, nudge prices up or down, switch off what is sold out, star today's specials, and send the rates and a link to customers on WhatsApp in one tap.
 - **Customers** open the link. No login, no app to install. They see whether the shop is open, its timings and delivery terms, today's specials first, then everything by kind. They tap what they want, and the order opens as a bill and then as a ready-typed WhatsApp message to the shop. They can repeat their last order in one tap.
 - **At the cart**, a printed QR poster opens WhatsApp to the shop with "send today's rates" typed, and the seller can show a QR of today's link on their phone.
+- **Regulars and udhari:** the seller keeps regular customers on their phone, sends each of them the day's rates in one tap, and keeps a credit book with WhatsApp reminders.
 - **Payment** is cash or UPI on delivery or pickup. If the vendor adds a UPI ID, the customer gets a "Pay by UPI" button with the amount filled in. No payment gateway, no fees.
 
 There is no server and no database: the shop travels inside the link the vendor shares, and the vendor's list is saved on their own phone. When rates change, the vendor sends a new link; an old link says its rates are old and offers to ask the shop for new ones. A private backup link moves the shop to another phone.
@@ -35,6 +36,8 @@ npm run build
 
 - `src/lib/shop.js`: the shop, its link code (`encodeShop` / `decodeShop`), number and UPI checks
 - `src/lib/catalogue.js`: common produce the vendor picks from (names and pictures, never prices)
+- `src/lib/ledger.js`: the seller's customers and udhari
+- `src/lib/speak.js`: reading rates aloud with the browser's speech
 - `src/lib/qr.js`: QR codes as SVG (the only runtime dependency besides React: `qrcode-generator`, MIT)
 - `src/lib/order.js`: basket, prices, quantities, the WhatsApp messages and links
 - `src/lib/i18n.js`: all interface text in Marathi and English (a test fails if either is missing a key)
@@ -47,6 +50,8 @@ npm run build
 - No accounts, trackers or analytics, and no server that stores anything.
 - A customer's name and address stay on their own phone (localStorage) and in the WhatsApp message they choose to send.
 - A vendor's shop name, WhatsApp number, UPI ID and rates stay on the vendor's phone and in the link the vendor chooses to share. Anyone who has the link can read them.
+- A seller's customer list and udhari book stay on the seller's phone only. They are not in any link, and not in the backup link.
+- "Listen" uses the phone's own voice; nothing is sent anywhere.
 - A backup link carries the whole shop. It is meant only for the vendor; the app says so.
 - No real shop, person or place is ever committed to this repository.
 

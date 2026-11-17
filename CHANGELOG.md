@@ -19,6 +19,13 @@ All notable changes to this project are listed here. The format follows [Keep a 
 - Move the shop to another phone with a private backup link, which asks before replacing a shop already there.
 - An old link now offers "Ask for today's rates", which messages the shop on WhatsApp.
 - Remove the shop from the phone, after asking once more.
+- Favourites: a buyer hearts the items they usually buy, and those come first on every visit.
+- Cheaper today: when a price is lower than on the seller's last earlier day, buyers see the old price struck through and how much less it is. The seller does nothing extra.
+- When do you want it: now, this evening or tomorrow morning goes into the order.
+- Listen: a button reads today's rates aloud with the phone's own voice, specials first.
+- Large text: a switch in the top bar, remembered on the phone.
+- My customers: the seller keeps regular customers on the phone and sends each of them today's rates in one tap.
+- Udhari book: credit given and payments received per customer, the total to collect, and a polite WhatsApp reminder.
 - Add to phone: where the browser allows it, a button puts the app on the home screen with its own icon. Once opened, the app also loads on a weak or missing network.
 
 ### Changed

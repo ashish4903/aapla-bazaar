@@ -5,29 +5,23 @@ import ShareButton from './ShareButton';
 import QrCode from './QrCode';
 import Sheet from './Sheet';
 import useLang from '../lib/useLang';
-import { dateText, encodeShop, shopItems, shopProblems, timeText, todayStamp } from '../lib/shop';
-import { ratesMessage, whatsappUrl } from '../lib/order';
+import { dateText, priceBase, shopItems, timeText, todayStamp } from '../lib/shop';
+import { whatsappUrl } from '../lib/order';
+import { todayShare } from '../lib/share';
+
+const now = () => Date.now();
 
 /** The seller's daily screen: open or closed, today's prices, send */
 export default function SellerToday({ shop, set, setItems }) {
-  const { t, name, lang } = useLang();
+  const language = useLang();
+  const { t, lang } = language;
   const [showErrors, setShowErrors] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const closeQr = useCallback(() => setShowQr(false), []);
 
   const items = shopItems(shop);
-  const problems = shopProblems(shop);
-  const ready = problems.length === 0;
-  const code = ready ? encodeShop(shop) : '';
-  const link = `${window.location.origin}${window.location.pathname}#/s/${code}`;
-  const message = ratesMessage({
-    shop,
-    items: items.filter((item) => item.price > 0),
-    link,
-    date: dateText(todayStamp(), lang),
-    t,
-    name,
-  });
+  const before = priceBase(shop);
+  const { ready, problems, code, link, message } = todayShare(shop, language);
 
   const sentToday = shop.sentAt > 0 && todayStamp(new Date(shop.sentAt)) === todayStamp();
   const status = !sentToday ? 'notSent' : shop.sentCode === code ? 'sent' : 'changed';
@@ -39,9 +33,11 @@ export default function SellerToday({ shop, set, setItems }) {
       return;
     }
     set({
-      sentAt: Date.now(),
+      sentAt: now(),
       sentCode: code,
       lastPrices: Object.fromEntries(shop.items.map((item) => [item.id, item.price])),
+      // Today's prices are compared with the last earlier day's, however often they are resent today
+      ...(sentToday ? {} : { basePrices: shop.lastPrices ?? {} }),
     });
   };
 
@@ -82,7 +78,7 @@ export default function SellerToday({ shop, set, setItems }) {
               <TodayItem
                 key={item.id}
                 item={item}
-                last={shop.lastPrices?.[item.id] ?? 0}
+                last={before[item.id] ?? 0}
                 onChange={(patch) => setItems((list) => list.map((it) => (it.id === item.id ? { ...it, ...patch } : it)))}
               />
             ))}
