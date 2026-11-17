@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 
 /**
  * `#/` home, `#/s/<code>` a shop, and the seller's screens:
- * `#/my-shop` today, `#/my-shop/items`, `#/my-shop/edit`
+ * `#/my-shop` today, `#/my-shop/items`, `#/my-shop/edit`, `#/my-shop/poster`,
+ * and `#/restore/<code>` to move a shop to this phone
  */
 export function parseHash(hash) {
   const path = hash.replace(/^#\/?/, '');
@@ -10,6 +11,8 @@ export function parseHash(hash) {
   if (path === 'my-shop') return { view: 'vendor', page: 'today' };
   if (path === 'my-shop/items') return { view: 'vendor', page: 'items' };
   if (path === 'my-shop/edit') return { view: 'vendor', page: 'edit' };
+  if (path === 'my-shop/poster') return { view: 'vendor', page: 'poster' };
+  if (path.startsWith('restore/')) return { view: 'restore', code: path.slice(8) };
   return { view: 'home' };
 }
 

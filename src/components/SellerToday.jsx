@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import TopBar from './TopBar';
 import TodayItem from './TodayItem';
 import ShareButton from './ShareButton';
+import QrCode from './QrCode';
+import Sheet from './Sheet';
 import useLang from '../lib/useLang';
 import { dateText, encodeShop, shopItems, shopProblems, timeText, todayStamp } from '../lib/shop';
 import { ratesMessage, whatsappUrl } from '../lib/order';
@@ -10,6 +12,8 @@ import { ratesMessage, whatsappUrl } from '../lib/order';
 export default function SellerToday({ shop, set, setItems }) {
   const { t, name, lang } = useLang();
   const [showErrors, setShowErrors] = useState(false);
+  const [showQr, setShowQr] = useState(false);
+  const closeQr = useCallback(() => setShowQr(false), []);
 
   const items = shopItems(shop);
   const problems = shopProblems(shop);
@@ -99,6 +103,9 @@ export default function SellerToday({ shop, set, setItems }) {
 
         {ready && (
           <div className="after-share">
+            <button type="button" className="ghost" onClick={() => setShowQr(true)}>
+              ▦ {t('today.qr')}
+            </button>
             <ShareButton copyOnly url={link} label={`🔗 ${t('vendor.copy')}`} />
             <a className="ghost" href={`#/s/${code}`}>
               👁 {t('vendor.preview')}
@@ -112,6 +119,16 @@ export default function SellerToday({ shop, set, setItems }) {
           {t('vendor.share')}
         </a>
       </div>
+
+      {showQr && ready && (
+        <Sheet labelledBy="qr-title" onClose={closeQr}>
+          <div className="qr-sheet">
+            <h2 id="qr-title">{t('today.qrTitle')}</h2>
+            <p>{t('today.qrText')}</p>
+            <QrCode text={link} label={t('today.qrTitle')} />
+          </div>
+        </Sheet>
+      )}
     </>
   );
 }

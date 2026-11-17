@@ -4,6 +4,7 @@ import HomeView from './components/HomeView';
 import ShopView from './components/ShopView';
 import VendorView from './components/VendorView';
 import BadLink from './components/BadLink';
+import RestoreView from './components/RestoreView';
 import useRoute from './lib/useRoute';
 import { decodeShop } from './lib/shop';
 import { read } from './lib/storage';
@@ -19,6 +20,7 @@ function Views() {
   }, []);
 
   if (view === 'vendor') return <VendorView page={page} />;
+  if (view === 'restore') return <RestoreView key={code} code={code} />;
   if (view === 'shop') return shop ? <ShopView key={code} shop={shop} code={code} /> : <BadLink />;
   return <HomeView />;
 }

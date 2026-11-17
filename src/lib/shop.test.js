@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { decodeShop, emptyShop, encodeShop, shopItems, shopProblems, upiUrl, validUpi, whatsappDigits } from './shop';
+import {
+  decodeBackup,
+  decodeShop,
+  emptyShop,
+  encodeBackup,
+  encodeShop,
+  shopItems,
+  shopProblems,
+  upiUrl,
+  validUpi,
+  whatsappDigits,
+} from './shop';
+import { qrPath } from './qr';
 import { orderMessage, orderTotals, basketLines, ratesMessage, setQty, shortOfMinimum } from './order';
 import { translate } from './i18n';
 
@@ -77,6 +89,33 @@ describe('shop link', () => {
     const [tomato, , , jaggery] = shopItems(shop);
     expect(tomato).toMatchObject({ icon: '🍅', cat: 'veg', name: { mr: 'टोमॅटो', en: 'Tomato' }, price: 30, special: true });
     expect(jaggery).toMatchObject({ cat: 'other', name: { mr: 'गूळ', en: 'गूळ' } });
+  });
+});
+
+describe('backup link and QR', () => {
+  it('carries the whole shop, unpriced items too, but not what was sent when', () => {
+    const back = decodeBackup(encodeBackup({ ...shop, setupDone: true, sentAt: 5, lastPrices: { tomato: 20 } }));
+    expect(back).toEqual({ ...shop, name: 'भाजी भांडार' });
+    expect(back.items).toHaveLength(4);
+  });
+
+  it('refuses a broken backup, and drops what it cannot trust', () => {
+    const code = (data) => btoa(JSON.stringify(data));
+    expect(decodeBackup('nonsense')).toBeNull();
+    expect(decodeBackup(code({ v: 1, shop: { name: '', items: [] } }))).toBeNull();
+    const odd = decodeBackup(
+      code({ v: 1, shop: { name: 'Shop', minOrder: 'lots', items: [{ id: 'tomato', unit: 'kg', price: -3 }, { id: 'zz', unit: 'kg' }, { id: 'onion', unit: 'sack' }] } }),
+    );
+    expect(odd).toMatchObject({ name: 'Shop', minOrder: 0, whatsapp: '', pickup: true, delivery: false });
+    expect(odd.items).toEqual([{ id: 'tomato', price: 0, unit: 'kg', inStock: true, special: false }]);
+  });
+
+  it('draws a QR code as a square with a quiet zone', () => {
+    const { size, path } = qrPath('https://wa.me/910000000000?text=hi');
+    // The top-left finder pattern starts right after the 4-module quiet zone
+    expect(path.startsWith('M4 4h1v1h-1z')).toBe(true);
+    expect(size).toBeGreaterThanOrEqual(21 + 8);
+    expect(qrPath('a much longer text '.repeat(20)).size).toBeGreaterThan(size);
   });
 });
 

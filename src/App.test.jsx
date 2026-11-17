@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
-import { decodeShop, emptyShop, encodeShop, todayStamp } from './lib/shop';
+import { decodeShop, emptyShop, encodeBackup, encodeShop, todayStamp } from './lib/shop';
 import { MY_SHOP_KEY } from './lib/keys';
 
 // Made-up test shop: the number is all zeros on purpose
@@ -95,6 +95,9 @@ describe('a shop link', () => {
   it('warns when the rates are from an earlier day', () => {
     openShop(20200101);
     expect(screen.getByRole('status').textContent).toContain('हे भाव जुने आहेत');
+    // ...and offers to ask the shop for today's rates on WhatsApp
+    const ask = screen.getByRole('link', { name: /आजचे भाव मागा/ });
+    expect(ask.getAttribute('href')).toBe(`https://wa.me/910000000000?text=${encodeURIComponent('नमस्ते, आजचे भाव पाठवा.')}`);
   });
 
   it('says so when the link is broken', () => {
@@ -220,6 +223,73 @@ describe('a shop link', () => {
 
     render(<App />);
     expect(summary()).toBe('1 वस्तू · ₹5');
+  });
+});
+
+describe('seller extras', () => {
+  const saved = {
+    ...shop,
+    setupDone: true,
+    items: [
+      { id: 'tomato', price: 30, unit: 'kg', inStock: true, special: false },
+      { id: 'onion', price: 0, unit: 'kg', inStock: true, special: false },
+    ],
+  };
+  const open = (hash) => {
+    localStorage.setItem(MY_SHOP_KEY, JSON.stringify(saved));
+    window.location.hash = hash;
+    render(<App />);
+  };
+
+  it('makes a poster whose QR asks the shop for today’s rates on WhatsApp', () => {
+    open('#/my-shop/poster');
+    expect(screen.getByRole('heading', { level: 2, name: 'भाजी भांडार' })).toBeTruthy();
+    const qr = screen.getByRole('img', { name: 'स्कॅन करा' });
+    expect(qr.querySelector('path').getAttribute('d')).toMatch(/^M4 4h1v1h-1z/);
+    expect(screen.getByRole('button', { name: /पोस्टर छापा/ })).toBeTruthy();
+  });
+
+  it('shows a QR of today’s link for a customer at the cart', async () => {
+    const user = userEvent.setup();
+    open('#/my-shop');
+    await user.click(screen.getByRole('button', { name: /QR दाखवा/ }));
+    const dialog = screen.getByRole('dialog', { name: 'आजच्या भावाचा QR' });
+    expect(within(dialog).getByRole('img', { name: 'आजच्या भावाचा QR' })).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', { name: 'बंद करा' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('moves the shop to another phone with a backup link, unpriced items included', async () => {
+    const user = userEvent.setup();
+    const code = encodeBackup(saved);
+    window.location.hash = `#/restore/${code}`;
+    render(<App />);
+    expect(screen.getByRole('heading', { level: 1, name: 'हे दुकान या फोनवर ठेवायचे?' })).toBeTruthy();
+    expect(screen.getByText('भाजी भांडार · 2 वस्तू')).toBeTruthy();
+    expect(localStorage.getItem(MY_SHOP_KEY)).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'हो, या फोनवर ठेवा' }));
+    expect(await screen.findByLabelText('कांदा चा भाव')).toBeTruthy();
+    expect(screen.getByLabelText('टोमॅटो चा भाव').value).toBe('30');
+  });
+
+  it('refuses a broken backup link', () => {
+    window.location.hash = '#/restore/nonsense';
+    render(<App />);
+    expect(screen.getByRole('heading', { level: 1, name: 'ही लिंक उघडत नाही' })).toBeTruthy();
+  });
+
+  it('removes the shop from the phone only after asking again', async () => {
+    const user = userEvent.setup();
+    open('#/my-shop/edit');
+    await user.click(screen.getByRole('button', { name: 'दुकान या फोनवरून काढा' }));
+    await user.click(screen.getByRole('button', { name: 'नको' }));
+    expect(JSON.parse(localStorage.getItem(MY_SHOP_KEY)).name).toBe('भाजी भांडार');
+
+    await user.click(screen.getByRole('button', { name: 'दुकान या फोनवरून काढा' }));
+    await user.click(screen.getByRole('button', { name: 'हो, काढा' }));
+    expect(await screen.findByRole('link', { name: 'दुकान सुरू करा' })).toBeTruthy();
+    expect(JSON.parse(localStorage.getItem(MY_SHOP_KEY)).name).toBe('');
   });
 });
 

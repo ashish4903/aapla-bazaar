@@ -1525,3 +1525,109 @@ html.has-sheet {
     opacity: 0;
   }
 }
+
+/* ---- QR, poster, backup, delete ---- */
+.qr {
+  display: block;
+  width: min(100%, 17rem);
+  height: auto;
+  margin: 0 auto;
+  border-radius: 12px;
+}
+
+.qr-sheet {
+  display: grid;
+  gap: 0.7rem;
+  justify-items: center;
+  padding-top: 0.4rem;
+  text-align: center;
+}
+
+.qr-sheet p {
+  color: var(--muted);
+}
+
+.qr-sheet .qr {
+  width: min(100%, 20rem);
+}
+
+.poster {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: center;
+  padding: 1.6rem 1rem;
+  text-align: center;
+  color: #111;
+  background: #fff;
+  border: 3px solid #1f7a3a;
+  border-radius: 22px;
+}
+
+.poster h2 {
+  margin: 0;
+  font-size: 1.9rem;
+  overflow-wrap: anywhere;
+}
+
+.poster-brand {
+  font-weight: 700;
+  color: #1f7a3a;
+}
+
+.poster-scan {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f7a3a;
+}
+
+.poster-hours {
+  font-weight: 700;
+}
+
+.notice a {
+  font-weight: 700;
+  color: inherit;
+  white-space: nowrap;
+}
+
+.danger-link {
+  justify-self: center;
+  min-height: 44px;
+  padding: 0 0.8rem;
+  color: var(--error);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ghost.danger {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+@media print {
+  .no-print,
+  .seller-nav,
+  .dock {
+    display: none !important;
+  }
+
+  body,
+  :root {
+    background: #fff;
+  }
+
+  #root {
+    padding: 0;
+  }
+
+  .poster {
+    margin-top: 2rem;
+    border-width: 4px;
+  }
+
+  .poster .qr {
+    width: 22rem;
+  }
+}

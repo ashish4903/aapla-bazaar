@@ -14,6 +14,11 @@ All notable changes to this project are listed here. The format follows [Keep a 
 - Order as a bill: items, delivery charge and total, with quantities still changeable. Name, address and pickup-or-delivery are remembered on the phone only, and the order becomes a ready-typed WhatsApp message to the shop's number.
 - After ordering: what happens next in three steps, a "Pay by UPI" button with the amount filled in (when the shop has a UPI ID), and "fill my last order again" on the next visit.
 - Home page that offers the shop opened last and explains how a shopkeeper starts. A seller who opens the app lands on their own day. Share button for a shop. Marathi and English throughout.
+- QR poster for the cart: scanning it opens WhatsApp to the shop with "send today's rates" already typed, so the poster stays right however often rates change. It prints on one page.
+- QR of today's link on the seller's screen, for a customer standing at the cart.
+- Move the shop to another phone with a private backup link, which asks before replacing a shop already there.
+- An old link now offers "Ask for today's rates", which messages the shop on WhatsApp.
+- Remove the shop from the phone, after asking once more.
 - Add to phone: where the browser allows it, a button puts the app on the home screen with its own icon. Once opened, the app also loads on a weak or missing network.
 
 ### Changed

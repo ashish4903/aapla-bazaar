@@ -2,7 +2,7 @@ import TopBar from './TopBar';
 import ShareButton from './ShareButton';
 import InstallButton from './InstallButton';
 import useLang from '../lib/useLang';
-import { rupees } from '../lib/order';
+import { rupees, whatsappUrl } from '../lib/order';
 import { callUrl, dateText, todayStamp } from '../lib/shop';
 
 /** What a buyer wants to know first: open or not, how they get it, what it costs */
@@ -36,7 +36,10 @@ export default function ShopHeader({ shop }) {
 
       {stale && (
         <p className="notice" role="status">
-          {t('shop.stale')}
+          {t('shop.stale')}{' '}
+          <a href={whatsappUrl(shop.whatsapp, t('poster.ask'))} target="_blank" rel="noreferrer">
+            {t('shop.askRates')} →
+          </a>
         </p>
       )}
 

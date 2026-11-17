@@ -18,12 +18,15 @@ React (Vite) app for small village shops: customers see today's rates and order 
 - `src/lib/order.js`: basket, prices, quantity labels, the customer's order message, the vendor's rates message, WhatsApp links
 - `src/lib/i18n.js`: all interface text; use `useLang()` (`t`, `name`, `pick`) in components and never hard-code visible text. A test fails if Marathi or English is missing a key
 - `src/lib/storage.js`: localStorage that never throws
+- `src/lib/qr.js` + `QrCode.jsx`: QR codes as SVG, always black on white. The poster's QR (`SellerPoster.jsx`) is a WhatsApp link to the shop, never a rates link, so it cannot go stale
+- Backup: `encodeBackup`/`decodeBackup` in `shop.js`, opened at `#/restore/<code>` (`RestoreView.jsx`), which always asks before saving
 - `public/sw.js` + `public/manifest.webmanifest`: install to the home screen and offline loading. The worker is network first and registered only in the built site (`src/main.jsx`); `src/lib/useInstall.js` holds the browser's install offer. `public/icon-192.png` and `icon-512.png` are rendered from `public/icon.svg`
 - `src/components/`: one small component per file
 - `src/index.css`: all styles, mobile-first, system fonts only
 
 ## Rules
 
+- After `npm install <package>` on Windows, check `git diff package-lock.json`: npm drops the optional `@emnapi/*` entries that CI's `npm ci` needs. Restore them before committing.
 - Built for cheap phones on slow networks: no UI library, no web fonts, no images unless needed. Touch targets at least 44px.
 - **Thumb rule, no exceptions:** never commit sensitive data, keys or config that holds them: secrets, tokens, API keys (even "public" ones such as a database anon key), `.env` files, or a real person's phone number, UPI ID, email, name or address. Keys live in GitHub Actions secrets/variables or a git-ignored `.env.local`, set by the owner. Check the staged diff before every commit.
 - **Ask first:** don't read files outside this folder, or any config, credential or `.env` file, without the owner's permission.
