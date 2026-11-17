@@ -10,7 +10,15 @@ export default function OrderSent({ shop, amount, onBack }) {
         ✓
       </span>
       <h2 id="sent-title">{t('sent.title')}</h2>
-      <p>{t('sent.text')}</p>
+
+      <div className="card next">
+        <h3>{t('sent.next')}</h3>
+        <ol className="steps">
+          <li>{t('sent.step1')}</li>
+          <li>{t('sent.step2')}</li>
+          <li>{t('sent.step3', { amount: rupees(amount) })}</li>
+        </ol>
+      </div>
 
       {shop.upi && amount > 0 && (
         <>

@@ -2,33 +2,39 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
-import { decodeShop, encodeShop, todayStamp } from './lib/shop';
+import { decodeShop, emptyShop, encodeShop, todayStamp } from './lib/shop';
+import { MY_SHOP_KEY } from './lib/keys';
 
 // Made-up test shop: the number is all zeros on purpose
 const shop = {
+  ...emptyShop(),
   name: 'भाजी भांडार',
   place: 'बस स्टँडजवळ',
   whatsapp: '0000000000',
   upi: 'shop@bank',
-  pickup: true,
   delivery: true,
+  deliveryCharge: 10,
+  minOrder: 40,
+  hours: 'सकाळी ७ ते रात्री ८',
+  note: 'आज ताजी मेथी',
   items: [
-    { id: 'tomato', price: 30, unit: 'kg', inStock: true },
-    { id: 'onion', price: 20, unit: 'kg', inStock: true },
-    { id: 'methi', price: 15, unit: 'bunch', inStock: true },
-    { id: 'cabbage', price: 25, unit: 'piece', inStock: false },
-    { id: 'banana', price: 50, unit: 'dozen', inStock: true },
+    { id: 'tomato', price: 30, unit: 'kg', inStock: true, special: false },
+    { id: 'onion', price: 20, unit: 'kg', inStock: true, special: false },
+    { id: 'methi', price: 15, unit: 'bunch', inStock: true, special: true },
+    { id: 'cabbage', price: 25, unit: 'piece', inStock: false, special: false },
+    { id: 'banana', price: 50, unit: 'dozen', inStock: true, special: false },
   ],
 };
 
-const openShop = (stamp = todayStamp()) => {
-  window.location.hash = `#/s/${encodeShop(shop, stamp)}`;
+const openShop = (stamp = todayStamp(), change = {}) => {
+  window.location.hash = `#/s/${encodeShop({ ...shop, ...change }, stamp)}`;
   render(<App />);
 };
 
 const messageOf = (link) => decodeURIComponent(link.getAttribute('href').split('?text=')[1]);
 // jsdom cannot open WhatsApp: stop the link, the app's own handler still runs
 const dontLeave = (link) => link.addEventListener('click', (e) => e.preventDefault());
+const summary = () => document.querySelector('.basket-summary')?.textContent;
 
 beforeEach(() => {
   localStorage.clear();
@@ -58,13 +64,32 @@ describe('home', () => {
 });
 
 describe('a shop link', () => {
-  it('shows the shop and its rates, with sold-out items that cannot be added', () => {
+  it('answers the buyer’s first questions: open, timings, delivery terms, call', () => {
     openShop();
     expect(screen.getByRole('heading', { level: 1, name: 'भाजी भांडार' })).toBeTruthy();
-    expect(screen.getByText('टोमॅटो')).toBeTruthy();
+    expect(screen.getByText(/आज सुरू आहे · सकाळी ७ ते रात्री ८/)).toBeTruthy();
+    expect(screen.getByText(/आज ताजी मेथी/)).toBeTruthy();
+    expect(screen.getByText(/घरपोच शुल्क ₹10/)).toBeTruthy();
+    expect(screen.getByText('घरपोच साठी किमान ₹40')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /फोन करा/ }).getAttribute('href')).toBe('tel:+910000000000');
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('lists today’s specials first, then by kind, with sold-out items that cannot be added', () => {
+    openShop();
+    const headings = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+    expect(headings).toEqual(['★ आजचे खास', 'भाज्या', 'फळे']);
+    expect(document.querySelector('.items .item-name').textContent).toContain('मेथी');
     expect(screen.queryByRole('button', { name: 'पत्ताकोबी घ्या' })).toBeNull();
     expect(screen.getByText('संपले')).toBeTruthy();
-    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('takes no orders when the shop is closed', () => {
+    openShop(todayStamp(), { open: false });
+    expect(screen.getByText(/आज बंद आहे · /)).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toContain('आज ऑर्डर घेतली जात नाही');
+    expect(screen.getByText('टोमॅटो')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'टोमॅटो घ्या' })).toBeNull();
   });
 
   it('warns when the rates are from an earlier day', () => {
@@ -94,7 +119,19 @@ describe('a shop link', () => {
     expect(screen.getByText('अशी वस्तू सापडली नाही')).toBeTruthy();
   });
 
-  it('takes an order to the shop’s WhatsApp, then offers UPI and a repeat order', async () => {
+  it('jumps to the usual weights, and says how far the basket is from the delivery minimum', async () => {
+    const user = userEvent.setup();
+    openShop();
+    await user.click(screen.getByRole('button', { name: 'टोमॅटो घ्या' }));
+    expect(summary()).toBe('1 वस्तू · ₹7.50');
+    expect(screen.getByText('घरपोच साठी अजून ₹32.50 ची खरेदी हवी')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: '2 किलो' }));
+    expect(summary()).toBe('1 वस्तू · ₹60');
+    expect(screen.queryByText(/घरपोच साठी अजून/)).toBeNull();
+  });
+
+  it('takes an order to the shop’s WhatsApp as a bill, then offers UPI and a repeat order', async () => {
     const user = userEvent.setup();
     openShop();
 
@@ -102,40 +139,45 @@ describe('a shop link', () => {
     await user.click(screen.getByRole('button', { name: 'टोमॅटो वाढवा' }));
     await user.click(screen.getByRole('button', { name: 'मेथी घ्या' }));
     // 0.5 kg × ₹30 + 1 bunch × ₹15
-    expect(document.querySelector('.basket-summary').textContent).toBe('2 वस्तू · ₹30');
+    expect(summary()).toBe('2 वस्तू · ₹30');
 
     await user.click(screen.getByRole('button', { name: /ऑर्डर करा/ }));
-    // The order can still be changed here: 2 bunches now
-    await user.click(screen.getByRole('button', { name: 'मेथी वाढवा' }));
+    const send = () => screen.getByRole('link', { name: 'WhatsApp वर ऑर्डर पाठवा' });
 
-    // No name yet: the link is stopped and says why
-    await user.click(screen.getByRole('link', { name: 'WhatsApp वर ऑर्डर पाठवा' }));
+    // Home delivery below the shop's minimum, and no name yet: stopped, and says why
+    await user.click(screen.getByLabelText('घरपोच'));
+    await user.click(send());
+    expect(screen.getByRole('alert').textContent).toContain('घरपोच साठी किमान ₹40 ची ऑर्डर हवी');
     expect(screen.getByRole('alert').textContent).toContain('कृपया नाव लिहा');
 
+    // The order can still be changed here: 2 bunches now, which clears the minimum
+    await user.click(screen.getByRole('button', { name: 'मेथी वाढवा' }));
     await user.type(screen.getByLabelText('नाव'), 'सीमा');
-    await user.click(screen.getByLabelText('घरपोच'));
     await user.type(screen.getByLabelText('पत्ता / घर कुठे आहे'), 'मंदिराजवळ');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(document.querySelector('.bill-total').textContent).toBe('एकूण₹55');
 
-    const send = screen.getByRole('link', { name: 'WhatsApp वर ऑर्डर पाठवा' });
-    expect(send.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/910000000000\?text=/);
-    const text = messageOf(send);
+    expect(send().getAttribute('href')).toMatch(/^https:\/\/wa\.me\/910000000000\?text=/);
+    const text = messageOf(send());
     expect(text).toContain('आपला बाजार · भाजी भांडार');
     expect(text).toContain('• टोमॅटो: 500 ग्रॅम = ₹15');
     expect(text).toContain('• मेथी: 2 जुडी = ₹30');
-    expect(text).toContain('एकूण: ₹45');
+    expect(text).toContain('घरपोच शुल्क: ₹10');
+    expect(text).toContain('एकूण: ₹55');
     expect(text).toContain('नाव: सीमा');
     expect(text).toContain('घरपोच: मंदिराजवळ');
 
-    dontLeave(send);
-    await user.click(send);
+    dontLeave(send());
+    await user.click(send());
     expect(await screen.findByRole('heading', { name: 'WhatsApp उघडले आहे' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'UPI ने ₹45 द्या' }).getAttribute('href')).toContain('am=45.00');
+    expect(screen.getByText('माल मिळाल्यावर ₹55 रोख किंवा UPI ने द्या')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'UPI ने ₹55 द्या' }).getAttribute('href')).toContain('am=55.00');
 
     // Back in the shop the basket is empty, and the last order can be filled again
     await user.click(screen.getByRole('button', { name: /दुकानात परत जा/ }));
-    expect(document.querySelector('.basket-summary')).toBeNull();
+    expect(summary()).toBeUndefined();
     await user.click(screen.getByRole('button', { name: /मागची ऑर्डर पुन्हा भरा/ }));
-    expect(document.querySelector('.basket-summary').textContent).toBe('2 वस्तू · ₹45');
+    expect(summary()).toBe('2 वस्तू · ₹45');
   });
 
   it('keeps the basket when the page is reopened', async () => {
@@ -145,59 +187,108 @@ describe('a shop link', () => {
     cleanup();
 
     render(<App />);
-    expect(screen.getByText('250 ग्रॅम')).toBeTruthy();
+    expect(summary()).toBe('1 वस्तू · ₹5');
   });
 });
 
 describe('my shop', () => {
-  it('says what is missing, then builds a WhatsApp message with the rates and a working link', async () => {
-    const user = userEvent.setup();
+  const setUp = async (user) => {
     window.location.hash = '#/my-shop';
     render(<App />);
+    const next = () => screen.getByRole('button', { name: /पुढे/ });
+
+    // Step 1 will not move on without a name and number
+    await user.click(next());
+    expect(screen.getByRole('alert').textContent).toContain('दुकानाचे नाव लिहा');
+    await user.type(screen.getByLabelText('दुकानाचे नाव'), 'भाजी भांडार');
+    await user.type(screen.getByLabelText(/^WhatsApp नंबर/), '0000000000');
+    await user.click(next());
+
+    // Step 2: what the shop sells, including a name that is not in the list
+    await user.click(next());
+    expect(screen.getByRole('alert').textContent).toContain('किमान एक वस्तू निवडा');
+    await user.click(screen.getByRole('button', { name: 'टोमॅटो जोडा' }));
+    await user.click(screen.getByRole('button', { name: 'मेथी जोडा' }));
+    await user.type(screen.getByRole('searchbox'), 'गूळ');
+    await user.click(screen.getByRole('button', { name: /“गूळ” जोडा/ }));
+    await user.click(next());
+
+    // Step 3: how customers are served
+    await user.click(screen.getByLabelText('घरपोच मिळेल'));
+    await user.type(screen.getByLabelText('घरपोच शुल्क ₹'), '10');
+    await user.click(screen.getByRole('button', { name: 'दुकान तयार करा' }));
+  };
+
+  it('sets up in three steps, then sends today’s rates with a working link', async () => {
+    const user = userEvent.setup();
+    await setUp(user);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'भाजी भांडार' })).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe('आजचे भाव अजून पाठवले नाहीत');
 
     const share = () => screen.getByRole('link', { name: 'आजचे भाव WhatsApp वर पाठवा' });
     await user.click(share());
-    expect(screen.getByRole('alert').textContent).toContain('दुकानाचे नाव लिहा');
     expect(screen.getByRole('alert').textContent).toContain('किमान एका वस्तूचा भाव भरा');
 
-    await user.type(screen.getByLabelText('दुकानाचे नाव'), 'भाजी भांडार');
-    await user.type(screen.getByLabelText(/^WhatsApp नंबर/), '0000000000');
-    await user.click(screen.getByRole('button', { name: 'टोमॅटो जोडा' }));
-    await user.click(screen.getByRole('button', { name: 'मेथी जोडा' }));
     await user.type(screen.getByLabelText('टोमॅटो चा भाव'), '30');
+    await user.click(screen.getByRole('button', { name: 'टोमॅटो चा भाव ५ ने जास्त' }));
     await user.type(screen.getByLabelText('मेथी चा भाव'), '15');
     await user.click(screen.getByLabelText('मेथी उपलब्ध आहे'));
-
-    // A name that is not in the catalogue
-    await user.type(screen.getByRole('searchbox'), 'गूळ');
-    await user.click(screen.getByRole('button', { name: /“गूळ” जोडा/ }));
     await user.type(screen.getByLabelText('गूळ चा भाव'), '60');
+    await user.click(screen.getByRole('button', { name: 'गूळ आजचे खास' }));
+    await user.type(screen.getByLabelText('आजची सूचना (ऐच्छिक)'), 'ताजा माल');
 
     expect(screen.queryByRole('alert')).toBeNull();
     const text = messageOf(share());
-    expect(text).toContain('भाजी भांडार');
-    expect(text).toContain('• टोमॅटो: ₹30 / किलो');
+    expect(text).toContain('📣 ताजा माल');
+    expect(text).toContain('• टोमॅटो: ₹35 / किलो');
     expect(text).toContain('• मेथी: संपले');
-    expect(text).toContain('• गूळ: ₹60 / किलो');
+    expect(text).toContain('⭐ गूळ: ₹60 / किलो');
 
     const sent = decodeShop(text.match(/#\/s\/(\S+)/)[1]);
-    expect(sent).toMatchObject({ name: 'भाजी भांडार', whatsapp: '910000000000', date: todayStamp() });
-    expect(sent.items.map((item) => [item.id.startsWith('x') ? item.label : item.id, item.price, item.inStock])).toEqual([
-      ['tomato', 30, true],
-      ['methi', 15, false],
-      ['गूळ', 60, true],
+    expect(sent).toMatchObject({
+      name: 'भाजी भांडार',
+      whatsapp: '910000000000',
+      delivery: true,
+      deliveryCharge: 10,
+      note: 'ताजा माल',
+      date: todayStamp(),
+    });
+    expect(sent.items.map((item) => [item.label ?? item.id, item.price, item.inStock, item.special])).toEqual([
+      ['tomato', 35, true, false],
+      ['methi', 15, false, false],
+      ['गूळ', 60, true, true],
     ]);
+
+    // Sending is remembered; a later price change asks for a resend and shows the last price
+    dontLeave(share());
+    await user.click(share());
+    expect(screen.getByRole('status').textContent).toMatch(/^✓ आजचे भाव .+ ला पाठवले$/);
+    await user.click(screen.getByRole('button', { name: 'टोमॅटो चा भाव ५ ने कमी' }));
+    expect(screen.getByRole('status').textContent).toBe('भाव बदलले आहेत. पुन्हा पाठवा.');
+    expect(screen.getByText('मागचा भाव ₹35')).toBeTruthy();
   });
 
-  it('remembers the shop on the phone', async () => {
+  it('opens straight on the seller’s day once a shop exists, with items and details a tap away', async () => {
     const user = userEvent.setup();
-    window.location.hash = '#/my-shop';
+    localStorage.setItem(
+      MY_SHOP_KEY,
+      JSON.stringify({ ...shop, setupDone: true, items: [{ id: 'tomato', price: 30, unit: 'kg', inStock: true }] }),
+    );
     render(<App />);
-    await user.type(screen.getByLabelText('दुकानाचे नाव'), 'भाजी भांडार');
-    cleanup();
+    expect(await screen.findByRole('heading', { level: 1, name: 'भाजी भांडार' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /आज/, current: 'page' })).toBeTruthy();
 
-    window.location.hash = '';
-    render(<App />);
-    expect(screen.getByRole('link', { name: 'माझे दुकान: भाजी भांडार' })).toBeTruthy();
+    await user.click(screen.getByRole('link', { name: /वस्तू$/ }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'माझ्या वस्तू' })).toBeTruthy();
+    await user.selectOptions(screen.getByLabelText('टोमॅटो चे माप'), 'piece');
+    await user.click(screen.getByRole('button', { name: 'कांदा जोडा' }));
+    expect(JSON.parse(localStorage.getItem(MY_SHOP_KEY)).items.map((item) => [item.id, item.unit])).toEqual([
+      ['tomato', 'piece'],
+      ['onion', 'kg'],
+    ]);
+
+    await user.click(screen.getByRole('link', { name: /दुकान$/ }));
+    expect(await screen.findByLabelText('दुकानाची वेळ')).toBeTruthy();
   });
 });

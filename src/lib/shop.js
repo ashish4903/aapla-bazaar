@@ -6,8 +6,11 @@ import { catalogueItem } from './catalogue';
  * is ever in this repository or on a server. When a database is added, only
  * this file changes.
  *
- * Stored item: { id, price, unit, inStock, label? }. `label` is the name of an
- * item the vendor typed that is not in the catalogue.
+ * Stored item: { id, price, unit, inStock, special, label? }. `label` is the
+ * name of an item the vendor typed that is not in the catalogue.
+ *
+ * The vendor's copy also keeps `setupDone`, `sentAt`, `sentCode` and
+ * `lastPrices`; those never go into the link.
  */
 export const UNITS = ['kg', 'bunch', 'piece', 'dozen'];
 
@@ -21,6 +24,11 @@ export const emptyShop = () => ({
   upi: '',
   pickup: true,
   delivery: false,
+  open: true,
+  hours: '',
+  note: '',
+  deliveryCharge: 0,
+  minOrder: 0,
   items: [],
 });
 
@@ -46,6 +54,7 @@ export function shopItems(shop) {
       price: item.price,
       unit: item.unit,
       inStock: item.inStock,
+      special: Boolean(item.special),
     };
   });
 }
@@ -53,11 +62,17 @@ export function shopItems(shop) {
 /** Baskets and past orders are kept per shop */
 export const shopKey = (shop) => whatsappDigits(shop.whatsapp) || shop.name;
 
+/** What stops the first setup step, as i18n keys */
+export function basicProblems(shop) {
+  return [!shop.name.trim() && 'vendor.needName', !whatsappDigits(shop.whatsapp) && 'vendor.needWhatsapp'].filter(
+    Boolean,
+  );
+}
+
 /** What stops a shop from being shared, as i18n keys */
 export function shopProblems(shop) {
   return [
-    !shop.name.trim() && 'vendor.needName',
-    !whatsappDigits(shop.whatsapp) && 'vendor.needWhatsapp',
+    ...basicProblems(shop),
     shop.upi.trim() && !validUpi(shop.upi.trim()) && 'vendor.badUpi',
     !shop.items.some((item) => item.price > 0) && 'vendor.needItems',
   ].filter(Boolean);
@@ -66,10 +81,15 @@ export function shopProblems(shop) {
 /** A day as a number, 20261116, in the phone's own time zone */
 export const todayStamp = (d = new Date()) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 
+const locale = (lang) => (lang === 'mr' ? 'mr-IN' : 'en-IN');
+
 export function dateText(stamp, lang) {
   const date = new Date(Math.floor(stamp / 10000), (Math.floor(stamp / 100) % 100) - 1, stamp % 100);
-  return new Intl.DateTimeFormat(lang === 'mr' ? 'mr-IN' : 'en-IN', { day: 'numeric', month: 'short' }).format(date);
+  return new Intl.DateTimeFormat(locale(lang), { day: 'numeric', month: 'short' }).format(date);
 }
+
+export const timeText = (ms, lang) =>
+  new Intl.DateTimeFormat(locale(lang), { hour: 'numeric', minute: '2-digit' }).format(new Date(ms));
 
 const toBase64Url = (text) => {
   let binary = '';
@@ -82,9 +102,13 @@ const fromBase64Url = (code) => {
   return new TextDecoder().decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
 };
 
+const money = (value) => (Number.isFinite(value) && value > 0 && value <= 100000 ? value : 0);
+
 /**
  * The shop as a short code for a link. Items without a price are left out.
- * [1, name, place, whatsapp, modes, upi, day, [[id, price, unit, stock, label?]]]
+ * [1, name, place, whatsapp, modes, upi, day,
+ *  [[id, price, unit, flags, label?]],   flags: 1 in stock, 2 today's special
+ *  [open, hours, note, deliveryCharge, minOrder]]
  */
 export function encodeShop(shop, stamp = todayStamp()) {
   const upi = shop.upi.trim();
@@ -100,9 +124,10 @@ export function encodeShop(shop, stamp = todayStamp()) {
       shop.items
         .filter((item) => item.price > 0)
         .map((item) => {
-          const cells = [item.id, item.price, UNITS.indexOf(item.unit), item.inStock ? 1 : 0];
+          const cells = [item.id, item.price, UNITS.indexOf(item.unit), (item.inStock ? 1 : 0) | (item.special ? 2 : 0)];
           return catalogueItem(item.id) ? cells : [...cells, item.label];
         }),
+      [shop.open ? 1 : 0, shop.hours.trim(), shop.note.trim(), money(shop.deliveryCharge), money(shop.minOrder)],
     ]),
   );
 }
@@ -119,24 +144,38 @@ export function decodeShop(code) {
     const seen = new Set();
     for (const cells of data[7].slice(0, 200)) {
       if (!Array.isArray(cells)) continue;
-      const [id, price, unit, stock, label] = cells;
+      const [id, price, unit, flags, label] = cells;
       const known = typeof id === 'string' && catalogueItem(id);
       if (typeof id !== 'string' || !id || id.length > 24 || seen.has(id)) continue;
       if (!Number.isFinite(price) || price <= 0 || price > 100000 || !UNITS[unit]) continue;
       if (!known && !text(label, 40)) continue;
       seen.add(id);
-      items.push({ id, price, unit: UNITS[unit], inStock: stock === 1, ...(known ? {} : { label: text(label, 40) }) });
+      items.push({
+        id,
+        price,
+        unit: UNITS[unit],
+        inStock: (flags & 1) === 1,
+        special: (flags & 2) === 2,
+        ...(known ? {} : { label: text(label, 40) }),
+      });
     }
 
     const modes = Number.isInteger(data[4]) ? data[4] : 1;
     const upi = text(data[5], 60);
+    const extra = Array.isArray(data[8]) ? data[8] : [];
+    const delivery = (modes & 2) === 2;
     const shop = {
       name: text(data[1], 60),
       place: text(data[2], 80),
       whatsapp: whatsappDigits(data[3]),
       upi: validUpi(upi) ? upi : '',
-      pickup: (modes & 1) === 1 || (modes & 2) === 0,
-      delivery: (modes & 2) === 2,
+      pickup: (modes & 1) === 1 || !delivery,
+      delivery,
+      open: extra[0] !== 0,
+      hours: text(extra[1], 40),
+      note: text(extra[2], 80),
+      deliveryCharge: delivery ? money(extra[3]) : 0,
+      minOrder: delivery ? money(extra[4]) : 0,
       date: Number.isInteger(data[6]) ? data[6] : 0,
       items,
     };
@@ -149,3 +188,5 @@ export function decodeShop(code) {
 /** Opens the customer's UPI app with the shop and amount filled in */
 export const upiUrl = (shop, amount) =>
   `upi://pay?pa=${encodeURIComponent(shop.upi)}&pn=${encodeURIComponent(shop.name)}&am=${amount.toFixed(2)}&cu=INR`;
+
+export const callUrl = (shop) => `tel:+${shop.whatsapp}`;

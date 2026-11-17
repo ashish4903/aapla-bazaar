@@ -1,8 +1,10 @@
 import Stepper from './Stepper';
 import useLang from '../lib/useLang';
-import { rupees } from '../lib/order';
+import { qtyLabel, rupees } from '../lib/order';
 
-export default function ItemRow({ item, qty, onChange }) {
+const QUICK_KG = [0.25, 0.5, 1, 2];
+
+export default function ItemRow({ item, qty, closed, onChange, onSet }) {
   const { t, name, lang } = useLang();
   const other = lang === 'mr' ? 'en' : 'mr';
   const state = !item.inStock ? ' is-out' : qty > 0 ? ' is-picked' : '';
@@ -12,7 +14,14 @@ export default function ItemRow({ item, qty, onChange }) {
         {item.icon}
       </span>
       <div className="item-text">
-        <span className="item-name">{name(item)}</span>
+        <span className="item-name">
+          {item.special && (
+            <span className="star-mark" aria-hidden="true">
+              ★{' '}
+            </span>
+          )}
+          {name(item)}
+        </span>
         {item.name[other] !== name(item) && (
           <span className="item-other" lang={other}>
             {item.name[other]}
@@ -24,7 +33,7 @@ export default function ItemRow({ item, qty, onChange }) {
       </div>
       {!item.inStock ? (
         <span className="item-out">{t('item.out')}</span>
-      ) : qty > 0 ? (
+      ) : closed ? null : qty > 0 ? (
         <Stepper item={item} qty={qty} onChange={onChange} />
       ) : (
         <button
@@ -35,6 +44,18 @@ export default function ItemRow({ item, qty, onChange }) {
         >
           + {t('item.add')}
         </button>
+      )}
+
+      {/* Loose produce: jump straight to the usual weights */}
+      {qty > 0 && item.inStock && !closed && item.unit === 'kg' && (
+        <div className="quick" role="group" aria-label={t('item.quick', { name: name(item) })}>
+          {QUICK_KG.map((weight) => (
+            <button key={weight} type="button" aria-pressed={qty === weight} onClick={() => onSet(item, weight)}>
+              {qtyLabel(item, weight, t)}
+            </button>
+          ))}
+          <span className="quick-amount">= {rupees(Math.round(item.price * qty * 100) / 100)}</span>
+        </div>
       )}
     </li>
   );
